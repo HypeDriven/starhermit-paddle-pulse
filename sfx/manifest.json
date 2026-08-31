@@ -1,0 +1,104 @@
+[
+  {
+    "name": "paddle-hit",
+    "seconds": 1,
+    "prompt": "Short punchy thwack of a hollow rubber paddle striking a hard plastic ball, tight attack with a faint high-pitched ring, indoor court acoustics",
+    "event": "event:paddle"
+  },
+  {
+    "name": "wall-bounce",
+    "seconds": 1,
+    "prompt": "Dull low thud of a small hard ball bouncing off a padded arena wall, quick decay, minimal echo",
+    "event": "event:wall"
+  },
+  {
+    "name": "bumper-bounce",
+    "seconds": 1,
+    "prompt": "Springy rounded boing of a ball rebounding off a rubber bumper, playful elastic tone with a quick pitch rise",
+    "event": "event:bumper"
+  },
+  {
+    "name": "serve-launch",
+    "seconds": 1,
+    "prompt": "Quick rising whoosh of a ball being launched across a table, airy sweep ending in a soft snap",
+    "event": "event:serve"
+  },
+  {
+    "name": "serve-ready",
+    "seconds": 1,
+    "prompt": "Single soft mallet tap on a wooden block, clean and brief, a gentle ready cue",
+    "event": "event:serve-ready"
+  },
+  {
+    "name": "goal-scored",
+    "seconds": 2,
+    "prompt": "Bright celebratory chime burst with a short crowd-free sparkle, ascending metallic ping resolving warmly",
+    "event": "event:goal"
+  },
+  {
+    "name": "match-end",
+    "seconds": 3,
+    "prompt": "Decisive final buzzer followed by a resonant gong swell, conclusive end-of-match punctuation fading to silence",
+    "event": "event:match-end"
+  },
+  {
+    "name": "invalid-action",
+    "seconds": 1,
+    "prompt": "Low muted double honk of a rubber error buzzer, soft and short, clearly negative but not harsh",
+    "event": "event:invalid"
+  },
+  {
+    "name": "ui-click",
+    "seconds": 1,
+    "prompt": "Crisp short click of a small plastic button being pressed, dry and immediate",
+    "event": "ui:click"
+  },
+  {
+    "name": "ui-back",
+    "seconds": 1,
+    "prompt": "Soft reverse tap, a gentle hollow wooden knock slightly lower and rounder than a confirm click",
+    "event": "ui:back"
+  },
+  {
+    "name": "ui-open",
+    "seconds": 1,
+    "prompt": "Light ascending paper-and-glass swoosh of a panel sliding open, airy and brief",
+    "event": "ui:open"
+  },
+  {
+    "name": "ui-error",
+    "seconds": 1,
+    "prompt": "Short descending muted electronic blip of a denied input, soft plastic buzz, one quick pulse",
+    "event": "ui:error"
+  },
+  {
+    "name": "ui-unlock",
+    "seconds": 1,
+    "prompt": "Bright two-note metallic key-turn and latch release, satisfying mechanical unlock with a light chime tail",
+    "event": "ui:unlock"
+  },
+  {
+    "name": "ui-star",
+    "seconds": 1,
+    "prompt": "Delicate high glass-bell sparkle, a single shimmering star twinkle with fine crystalline decay",
+    "event": "ui:star"
+  },
+  {
+    "name": "countdown-tick",
+    "seconds": 1,
+    "prompt": "Dry wooden metronome tick, one precise short knock for a countdown beat",
+    "event": "countdown:tick"
+  },
+  {
+    "name": "countdown-go",
+    "seconds": 1,
+    "prompt": "Sharp bright starting whistle chirp, short and energetic, signaling go",
+    "event": "countdown:go"
+  },
+  {
+    "name": "undo-rewind",
+    "seconds": 1,
+    "prompt": "Quick soft tape-rewind zip, a brief descending flutter like a page flipped backward",
+    "event": "undo"
+  }
+]

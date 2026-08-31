@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Paddle Pulse</title>
+<link rel="stylesheet" href="/style.css">
+<script type="importmap">
+{ "imports": { "three": "/vendor/three.module.js" } }
+</script>
+<script type="module" src="/js/main.js"></script>
+</head>
+<body>
+<div id="app">
+  <main id="stage" aria-label="Paddle Pulse arena">
+    <canvas id="arena" aria-label="3D arena view. All gameplay is also available through the HTML interface."></canvas>
+
+    <div id="hud" class="hud" hidden>
+      <div class="hud-status" role="status">
+        <span class="hud-name" id="hud-name-0">You</span>
+        <span class="hud-score" id="hud-score">0 – 0</span>
+        <span class="hud-name" id="hud-name-1">Opponent</span>
+      </div>
+      <div class="hud-rail hud-rail-left">
+        <p class="hud-objective" id="hud-objective"></p>
+        <p class="hud-sub" id="hud-sub"></p>
+      </div>
+      <div class="hud-rail hud-rail-right">
+        <button class="btn btn-primary" id="hud-serve" data-action="serve" disabled>Serve</button>
+        <button class="btn" id="hud-pause" data-action="pause">Pause</button>
+      </div>
+      <div class="hud-countdown" id="hud-countdown" aria-hidden="true"></div>
+    </div>
+
+    <div id="screens"></div>
+    <div id="toasts" aria-hidden="true"></div>
+    <div id="captions" aria-hidden="true"></div>
+    <div id="sr-state" class="visually-hidden" role="status" aria-live="polite"></div>
+    <div id="sr-alerts" class="visually-hidden" role="alert" aria-live="assertive"></div>
+  </main>
+</div>
+<noscript>Paddle Pulse requires JavaScript to run.</noscript>
+</body>
+</html>
