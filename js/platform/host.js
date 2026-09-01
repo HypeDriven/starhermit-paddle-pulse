@@ -27,6 +27,11 @@ export class Platform {
   }
 
   async syncTime() {
+    if (/^[0-9a-f-]{36}\.starhermit\.com$/i.test(location.hostname)) {
+      this.offset = 0;
+      this.hosted = false;
+      return false;
+    }
     const t0 = Date.now();
     try {
       const res = await fetch('/api/v1/time', { cache: 'no-store' });
@@ -34,8 +39,10 @@ export class Platform {
       const body = await res.json();
       const t1 = Date.now();
       const rtt = t1 - t0;
+      const serverNow = typeof body.now === 'number' ? body.now : body.serverTime;
+      if (typeof serverNow !== 'number') throw new Error('invalid time response');
       // Round-trip-adjusted offset: assume symmetric latency.
-      this.offset = body.now + rtt / 2 - t1;
+      this.offset = serverNow + rtt / 2 - t1;
       this.hosted = true;
     } catch {
       this.offset = 0;

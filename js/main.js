@@ -24,7 +24,7 @@ import { getAchievement } from './content/achievements.js';
 import { getTheme } from './content/themes.js';
 import { ArenaRenderer, QUALITY_TIERS } from './render/scene.js';
 import { AudioEngine } from './audio/audio.js';
-import { platform } from './platform/host.js';
+import { platform } from './platform/host.js?v=production-qa-1';
 
 const DT = 1 / TICK_RATE;
 const BUILD = 'web-1.0';
