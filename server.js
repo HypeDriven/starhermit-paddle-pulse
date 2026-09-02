@@ -30,6 +30,27 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Local stand-ins for the host-shell API routes the client calls when
+    // served by this server (presence heartbeat, activity pairing,
+    // telemetry batch, cloud saves). The dev server has no backing store,
+    // so these accept and acknowledge without persisting.
+    if (path.startsWith('/api/v1/')) {
+      // Consume the request body before responding: replying while the
+      // client is still uploading makes Chrome abort the request
+      // (net::ERR_ABORTED) even though the response itself is fine.
+      for await (const _ of req) { /* discard */ }
+      if (path === '/api/v1/saves' && req.method === 'GET') {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+        res.end('null');
+        return;
+      }
+      // Acknowledge with 200 + a JSON body, not 204: Chrome reports
+      // net::ERR_ABORTED for POST fetches answered with 204 No Content.
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end('{}');
+      return;
+    }
+
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(ROOT)) {
       // Path traversal attempt — never serve outside the project root.
