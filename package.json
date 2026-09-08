@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "description": "Paddle Pulse — neon kinetic paddle sport. Original browser game with deterministic rules engine.",
   "type": "module",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "validate:content": "node tests/content.test.js",
     "serve": "node server.js",
-    "smoke": "node tests/browser.smoke.mjs"
+    "smoke": "node tests/browser.smoke.mjs",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
   }
 }

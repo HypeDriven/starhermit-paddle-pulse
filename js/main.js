@@ -131,7 +131,7 @@ function goTitle() {
   game.phase = 'title';
   ui.hud.hidden = true;
   app.closeAll();
-  app.show('title', { progress, daily: game.daily || dailyNow(), name: settings.displayName, title: 'Paddle Pulse' });
+  app.show('title', { progress, daily: dailyNow(), name: settings.displayName, title: 'Paddle Pulse' });
 }
 
 // ---------------------------------------------------------------------------
@@ -411,26 +411,28 @@ function recordProgress(m, ctx, won, terminal) {
     progress.challenges[ctx.ref.id] = { cleared: true, best: terminal.score.join('-') };
   }
   if (ctx.mode === 'daily' && ctx.ranked) {
-    const date = game.daily.date;
+    // One ranked result per day: the match context carries the day's date, so
+    // a retry (whose ctx still says ranked) can never post a second entry.
+    const date = ctx.contentId?.startsWith('daily-') ? ctx.contentId.slice(6) : game.daily.date;
     if (!progress.dailies[date]) {
       progress.dailies[date] = {
         won, score: [...terminal.score], duration: Math.round(terminal.breakdown.elapsedSeconds),
         seed: ctx.seed, rulesetVersion: DAILY_RULESET_VERSION,
       };
-    }
-    const entry = {
-      name: settings.displayName,
-      score: terminal.score[0],
-      duration: Math.round(terminal.breakdown.elapsedSeconds),
-      rulesetVersion: DAILY_RULESET_VERSION,
-      seed: ctx.seed,
-      assists: settings.accessibility.timingAssist,
-    };
-    if (validateLeaderboardEntry(entry, { targetScore: 99 }).ok) {
-      const board = (progress.leaderboards.daily[date] ||= []);
-      board.push(entry);
-      board.sort((a, b) => b.score - a.score || a.duration - b.duration);
-      progress.leaderboards.daily[date] = board.slice(0, 20);
+      const entry = {
+        name: settings.displayName,
+        score: terminal.score[0],
+        duration: Math.round(terminal.breakdown.elapsedSeconds),
+        rulesetVersion: DAILY_RULESET_VERSION,
+        seed: ctx.seed,
+        assists: settings.accessibility.timingAssist,
+      };
+      if (validateLeaderboardEntry(entry, { targetScore: 99 }).ok) {
+        const board = (progress.leaderboards.daily[date] ||= []);
+        board.push(entry);
+        board.sort((a, b) => b.score - a.score || a.duration - b.duration);
+        progress.leaderboards.daily[date] = board.slice(0, 20);
+      }
     }
   }
   const local = progress.leaderboards.local;
@@ -759,6 +761,7 @@ document.addEventListener('visibilitychange', () => {
 // ---------------------------------------------------------------------------
 
 function handleBack() {
+  remapKey = null; // leaving the screen cancels a pending key capture
   const top = app.top();
   audio.ui('back');
   if (top === 'pause') resumeMatch();
@@ -767,9 +770,10 @@ function handleBack() {
 }
 
 function handleAction(action, params) {
+  if (action !== 'remap') remapKey = null; // any other click abandons a pending key capture
   audio.ensure();
   if (!['serve', 'pause'].includes(action)) audio.ui('click');
-  const daily = game.daily || dailyNow();
+  const daily = dailyNow(); // always recompute so a session crossing UTC midnight sees today's daily
 
   switch (action) {
     // ---- navigation

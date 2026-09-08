@@ -154,7 +154,7 @@ export const screenBuilders = {
          <span class="chip">${escapeHtml(players)}</span>
          <span class="chip">~${escapeHtml(duration)}</span></p>
       <p class="seed-chip" title="Seeded and inspectable">seed <code>${escapeHtml(String(seed))}</code></p>
-      ${assists ? `<label class="check"><input type="checkbox" data-setting="timingAssist" ${assists.timingAssist ? 'checked' : ''}> Timing assist (wider paddle, declared on submission)</label>` : ''}
+      ${assists ? `<label class="check"><input type="checkbox" data-setting="accessibility.timingAssist" ${assists.timingAssist ? 'checked' : ''}> Timing assist (wider paddle, declared on submission)</label>` : ''}
       <div class="row-gap">
         <button class="btn btn-primary btn-big" data-action="start-match" data-autofocus>${escapeHtml(startLabel || 'Start')}</button>
         <button class="btn" data-action="back">Back</button>
