@@ -6,6 +6,7 @@
 
 import { App, fmtTime } from './ui/app.js';
 import { screenBuilders } from './ui/screens.js';
+import { t, setLocale, currentLocale, detectLocale } from './ui/i18n.js';
 import {
   TICK_RATE, PHASE, CMD, verifyReplay,
 } from './rules/engine.js';
@@ -45,11 +46,12 @@ const ui = {
   objective: document.getElementById('hud-objective'),
   sub: document.getElementById('hud-sub'),
   serve: document.getElementById('hud-serve'),
+  pause: document.getElementById('hud-pause'),
   countdown: document.getElementById('hud-countdown'),
   canvas: document.getElementById('arena'),
 };
 
-const audio = new AudioEngine({ onCaption: (t) => app.caption(t), seed: 1 });
+const audio = new AudioEngine({ onCaption: (txt) => app.caption(txt), seed: 1 });
 let renderer = null;
 
 const game = {
@@ -85,13 +87,19 @@ function dailyNow() {
   return game.daily;
 }
 
+function updateHudStatic() {
+  ui.serve.textContent = t('hud.serve');
+  ui.pause.textContent = t('hud.pause');
+}
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
 async function boot() {
   applySettings();
-  app.show('boot', { pct: 30, label: 'Synchronizing clock…', title: 'Loading' });
+  updateHudStatic();
+  app.show('boot', { pct: 30, label: t('boot.clock'), title: 'Loading' });
   await platform.init();
   app.close('boot');
   dailyNow();
@@ -99,7 +107,7 @@ async function boot() {
   if (!ArenaRenderer.supported()) {
     // Compatibility path: progress is untouched, message explains recovery.
     game.phase = 'title';
-    app.show('compat', { title: '3D unavailable' });
+    app.show('compat', { title: t('compat.title') });
     return;
   }
   renderer = new ArenaRenderer(ui.canvas, {
@@ -107,7 +115,7 @@ async function boot() {
     reducedMotion: effectiveReducedMotion(),
     trails: settings.graphics.trails,
     onContextLost: (lost) => {
-      if (lost) app.toast('Graphics context lost — restoring…', { kind: 'error' });
+      if (lost) app.toast(t('toast.ctxLost'), { kind: 'error' });
     },
   });
   window.addEventListener('resize', () => renderer.resize());
@@ -160,6 +168,26 @@ function applySettings() {
     renderer.setReducedMotion(effectiveReducedMotion());
     if (settings.graphics.tier !== 'auto') renderer.setQuality(settings.graphics.tier);
   }
+  applyLocale();
+}
+
+// Language: explicit setting wins; otherwise detect from the browser. On a
+// real change, re-render open screens and refresh the HUD chrome so the new
+// locale applies without leaving the current flow.
+function applyLocale() {
+  const desired = settings.language === 'auto'
+    ? detectLocale([...(navigator.languages || []), navigator.language || 'en-US'])
+    : settings.language;
+  document.documentElement.lang = desired;
+  if (desired === currentLocale()) return;
+  setLocale(desired);
+  app.rerender();
+  updateHudStatic();
+  if (game.match) {
+    ui.objective.textContent = game.ctx?.objective ||
+      t('hud.objectiveDefault', { score: game.match.state.ruleset.targetScore, margin: game.match.state.ruleset.winMargin });
+    updateHudSub();
+  }
 }
 
 function setPath(obj, path, value) {
@@ -183,17 +211,17 @@ function openSetup(ctx) {
     title: ctx.title,
     brief: ctx.brief || '',
     rules: [
-      ['Target', `${r.targetScore ?? 5} points, win by ${r.winMargin ?? 2}`],
-      ['Ball speed', `${r.ballSpeed ?? 14} u/s`],
-      ...(ctx.seats[1].kind === 'ai' ? [['Opponent', AI_LEVELS[ctx.seats[1].level ?? 2].name]] : []),
-      ...(ctx.allowUndo ? [['Recovery', 'Restart + undo available']] : []),
+      [t('setup.ruleTarget'), t('setup.valTarget', { score: r.targetScore ?? 5, margin: r.winMargin ?? 2 })],
+      [t('setup.ruleBallSpeed'), t('setup.valBallSpeed', { speed: r.ballSpeed ?? 14 })],
+      ...(ctx.seats[1].kind === 'ai' ? [[t('setup.ruleOpponent'), AI_LEVELS[ctx.seats[1].level ?? 2].name]] : []),
+      ...(ctx.allowUndo ? [[t('setup.ruleRecovery'), t('setup.valRecovery')]] : []),
     ],
-    players: ctx.seats[1].kind === 'ai' ? 'Solo vs AI' : '2P shared screen',
+    players: ctx.seats[1].kind === 'ai' ? t('setup.playersSolo') : t('setup.playersDuet'),
     ranked: !!ctx.ranked,
-    duration: '~2 min',
+    duration: t('setup.minutes', { m: 2 }),
     seed: ctx.seed,
     assists: { timingAssist: settings.accessibility.timingAssist },
-    startLabel: ctx.startLabel || 'Start',
+    startLabel: ctx.startLabel || t('common.start'),
   });
 }
 
@@ -202,11 +230,11 @@ function openPause() {
   game.phase = 'paused';
   saveSnapshot();
   app.show('pause', {
-    title: 'Paused',
-    objective: game.ctx?.brief || game.ctx?.title || 'Match paused',
+    title: t('pause.title'),
+    objective: game.ctx?.brief || game.ctx?.title || t('pause.title'),
     canUndo: !!game.match?.allowUndo && game.match.snapshots.length > 0,
   });
-  app.announce('Paused');
+  app.announce(t('toast.paused'));
 }
 
 function closePauseAnd(fn) {
@@ -232,7 +260,7 @@ function buildSeats(kind, aiLevel, names) {
     { kind: 'human', name: names?.[0] || settings.displayName },
     kind === 'ai'
       ? { kind: 'ai', level: aiLevel ?? 2, name: AI_LEVELS[aiLevel ?? 2].name }
-      : { kind: 'human', name: names?.[1] || 'Player 2' },
+      : { kind: 'human', name: names?.[1] || t('match.player2') },
   ];
 }
 
@@ -276,12 +304,13 @@ function startMatch(ctx = game.ctx) {
   audio.startMusic({ ...theme.ambience, seed: ctx.seed });
 
   ui.hud.hidden = false;
-  ui.name0.textContent = ctx.seats[0].name || 'You';
-  ui.name1.textContent = ctx.seats[1].name || 'Opponent';
-  ui.objective.textContent = ctx.objective || `First to ${game.match.state.ruleset.targetScore}, win by ${game.match.state.ruleset.winMargin}.`;
+  ui.name0.textContent = ctx.seats[0].name || t('hud.you');
+  ui.name1.textContent = ctx.seats[1].name || t('hud.opponent');
+  ui.objective.textContent = ctx.objective ||
+    t('hud.objectiveDefault', { score: game.match.state.ruleset.targetScore, margin: game.match.state.ruleset.winMargin });
   updateHudSub();
   updateHud();
-  app.announce(`${ctx.title}. ${ui.objective.textContent}`);
+  app.announce(t('announce.matchStart', { title: ctx.title, objective: ui.objective.textContent }));
   platform.activityStart();
   platform.telemetry('start', { mode: ctx.mode });
 
@@ -309,10 +338,10 @@ function updateHudSub() {
   if (!game.match) return;
   if (game.lesson) {
     const step = game.lesson.def.steps[game.lesson.stepIndex];
-    ui.sub.textContent = step ? step.text : 'Lesson complete.';
+    ui.sub.textContent = step ? step.text : t('lesson.headline');
   } else {
     const m = game.match;
-    ui.sub.textContent = game.ctx?.brief || `${m.state.ruleset.targetScore} to win · margin ${m.state.ruleset.winMargin}`;
+    ui.sub.textContent = game.ctx?.brief || t('hud.subFmt', { target: m.state.ruleset.targetScore, margin: m.state.ruleset.winMargin });
   }
 }
 
@@ -336,10 +365,10 @@ function showResults(m, ctx) {
   game.phase = 'results';
   ui.hud.hidden = true;
   storage.clear('snapshot');
-  const t = m.result;
-  const won = t.winner === 0;
-  const bd = t.breakdown;
-  recordProgress(m, ctx, won, t);
+  const terminal = m.result;
+  const won = terminal.winner === 0;
+  const bd = terminal.breakdown;
+  recordProgress(m, ctx, won, terminal);
 
   let starsEarned = null;
   if (ctx.mode === 'journey' && won) {
@@ -354,20 +383,20 @@ function showResults(m, ctx) {
   const unlocked = awardAchievements(m, won);
 
   const breakdown = [
-    ['Final score', `${bd.goals[0]} – ${bd.goals[1]}`],
-    ['Target', `${bd.targetScore} (margin ${bd.winMargin})`],
-    ['Rallies', String(bd.rallies)],
-    ['Longest rally', `${bd.longestRally} hits`],
-    ['Your returns', String(bd.hits[0])],
-    ['Fastest return', `${bd.fastestReturn} u/s`],
-    ['Duration', fmtTime(bd.elapsedSeconds)],
-    ['Reason', t.reason],
+    [t('results.finalScore'), `${bd.goals[0]} – ${bd.goals[1]}`],
+    [t('setup.ruleTarget'), t('results.targetRow', { score: bd.targetScore, margin: bd.winMargin })],
+    [t('results.rallies'), String(bd.rallies)],
+    [t('results.longestRow'), t('results.longest', { n: bd.longestRally })],
+    [t('results.returns'), String(bd.hits[0])],
+    [t('results.fastestRow'), t('results.fastest', { v: bd.fastestReturn })],
+    [t('results.duration'), fmtTime(bd.elapsedSeconds)],
+    [t('results.reason'), terminal.reason],
   ];
 
-  let nextLabel = 'Continue';
+  let nextLabel = t('common.cont');
   if (ctx.mode === 'journey' && won) {
     const next = getJourneyLevel(ctx.ref.index + 1);
-    nextLabel = next ? `Next: ${next.title}` : 'Journey complete';
+    nextLabel = next ? t('results.nextStage', { title: next.title }) : t('results.journeyDone');
   }
   saveProgress();
   audio.stopMusic();
@@ -377,8 +406,8 @@ function showResults(m, ctx) {
 
   app.show('results', {
     title: 'Results',
-    headline: won ? 'Victory' : t.reason === 'match-conceded' ? 'Conceded' : 'Defeat',
-    sub: `${ctx.title} — ${bd.goals[0]}–${bd.goals[1]}`,
+    headline: won ? t('results.victory') : terminal.reason === 'match-conceded' ? t('results.conceded') : t('results.defeat'),
+    sub: t('results.sub', { title: ctx.title, a: bd.goals[0], b: bd.goals[1] }),
     breakdown,
     starsEarned,
     unlocked,
@@ -387,7 +416,11 @@ function showResults(m, ctx) {
     canVerify: true,
     won,
   });
-  app.announce(`${won ? 'Victory' : 'Defeat'} ${bd.goals[0]} to ${bd.goals[1]}`, true);
+  app.announce(t('announce.result', {
+    headline: won ? t('results.victory') : t('results.defeat'),
+    a: bd.goals[0],
+    b: bd.goals[1],
+  }), true);
 }
 
 function countMasteryCleared() {
@@ -458,7 +491,7 @@ function awardAchievements(m, won) {
       rec.at = Date.now();
       unlocked.push(def);
       audio.ui('unlock');
-      app.toast(`Achievement: ${def.name}`, { kind: 'success' });
+      app.toast(t('toast.achievement', { name: def.name }), { kind: 'success' });
     }
   };
   const cleared = Object.values(progress.journey).filter((j) => j.stars > 0).length;
@@ -513,12 +546,12 @@ function explainInvalid(res) {
   if (now - game.lastInvalidToast < 1000) return;
   game.lastInvalidToast = now;
   const msg = {
-    'match-finished': 'The match is over.',
-    'not-serve-phase': 'You can only serve when the ball is docked.',
-    'not-your-serve': "It's not your serve.",
-    'out-of-bounds': 'Paddle target is out of bounds.',
-    'move-limit-exceeded': 'Move limit reached — no commands left.',
-  }[res.reason] || 'Action not allowed.';
+    'match-finished': t('invalid.finished'),
+    'not-serve-phase': t('invalid.notServePhase'),
+    'not-your-serve': t('invalid.notYourServe'),
+    'out-of-bounds': t('invalid.outOfBounds'),
+    'move-limit-exceeded': t('invalid.moveLimit'),
+  }[res.reason] || t('invalid.fallback');
   app.toast(msg, { kind: 'error' });
 }
 
@@ -537,7 +570,7 @@ function lessonEvent(evt) {
     } else {
       settings.tutorialDone[l.def.id] = true;
       saveSettings();
-      app.toast(`${l.def.objective} — lesson complete ✓`, { kind: 'success', ms: 3200 });
+      app.toast(t('lesson.complete', { objective: l.def.objective }), { kind: 'success', ms: 3200 });
       if (l.def.id !== 't-score') {
         // Lessons that don't end by winning: close out cleanly.
         game.phase = 'resolving';
@@ -546,13 +579,13 @@ function lessonEvent(evt) {
           ui.hud.hidden = true;
           audio.stopAll();
           app.show('results', {
-            title: 'Lesson complete',
-            headline: 'Lesson complete',
+            title: t('lesson.headline'),
+            headline: t('lesson.headline'),
             sub: l.def.objective,
-            breakdown: [['Lesson', l.def.title], ['Steps', String(l.def.steps.length)]],
+            breakdown: [[t('lesson.lesson'), l.def.title], [t('lesson.steps'), String(l.def.steps.length)]],
             starsEarned: null,
             unlocked: [],
-            nextLabel: 'Back to Learn',
+            nextLabel: t('lesson.backToLearn'),
             canVerify: false,
             won: true,
           });
@@ -586,9 +619,13 @@ function frame(now) {
           if (game.lesson) lessonEvent(e);
           if (e.t === 'paddle' && e.player === 0 && Math.abs(e.offset) >= 0.5) game.angledHits++;
           if (e.t === 'goal') {
-            app.announce(`Score ${e.score[0]} to ${e.score[1]}${e.player === 0 ? ', your point' : ''}`);
+            app.announce(t('announce.score', {
+              a: e.score[0],
+              b: e.score[1],
+              suffix: e.player === 0 ? t('announce.yourPoint') : '',
+            }));
           }
-          if (e.t === 'match-end') app.announce(e.winner === 0 ? 'Match won' : 'Match lost', true);
+          if (e.t === 'match-end') app.announce(e.winner === 0 ? t('announce.won') : t('announce.lost'), true);
         }
       }
     }
@@ -679,7 +716,7 @@ document.addEventListener('keydown', (e) => {
     settings.controls.keys[remapKey] = e.code;
     remapKey = null;
     saveSettings();
-    app.toast('Key updated.');
+    app.toast(t('toast.keyUpdated'));
     refreshSettingsScreen();
     return;
   }
@@ -712,7 +749,7 @@ function toggleCamera() {
   settings.camera.view = settings.camera.view === 'broadcast' ? 'behind' : 'broadcast';
   renderer?.setView(settings.camera.view);
   saveSettings();
-  app.toast(`Camera: ${settings.camera.view}`);
+  app.toast(t('toast.camera', { view: settings.camera.view }));
 }
 
 function showHint() {
@@ -724,25 +761,25 @@ function showHint() {
     return;
   }
   if (m.state.phase === PHASE.SERVE) {
-    app.toast(m.state.server === 0 ? 'Your serve — press Space or tap the ball.' : 'Opponent serves. Get ready.');
+    app.toast(m.state.server === 0 ? t('toast.yourServe') : t('toast.oppServe'));
   } else {
-    app.toast('Meet the ball with your paddle; edge hits bend the angle.');
+    app.toast(t('toast.meetBall'));
   }
 }
 
 function doUndo() {
   if (!game.match?.allowUndo) {
-    app.toast('Undo is only available in practice and lessons.', { kind: 'error' });
+    app.toast(t('toast.undoOnly'), { kind: 'error' });
     return;
   }
   if (game.match.undo()) {
     audio.undo();
-    app.toast('Undone — back to the last serve.');
+    app.toast(t('toast.undone'));
     updateHud();
     if (app.isOpen('pause')) app.close('pause');
     game.phase = 'active';
   } else {
-    app.toast('Nothing to undo yet.', { kind: 'error' });
+    app.toast(t('toast.nothingToUndo'), { kind: 'error' });
   }
 }
 
@@ -809,7 +846,13 @@ function handleAction(action, params) {
       break;
     }
     case 'mode-challenge': app.show('challenges', { progress, title: 'Challenges' }); break;
-    case 'mode-hosted': app.show('lobby', { state: 'idle', rooms: platform.hosted ? 'Online services connected.' : 'Offline — online rooms need the host shell. Shared-screen 2P works anywhere.', title: 'Hosted Play' }); break;
+    case 'mode-hosted':
+      app.show('lobby', {
+        state: 'idle',
+        rooms: platform.hosted ? t('lobby.statusOnline') : t('lobby.statusOffline'),
+        title: 'Hosted Play',
+      });
+      break;
 
     // ---- content picks
     case 'journey-level': {
@@ -817,7 +860,7 @@ function handleAction(action, params) {
       if (!level) break;
       openSetup({
         mode: 'journey', contentId: level.id, ref: level,
-        title: `Stage ${level.index}: ${level.title}`, brief: level.brief,
+        title: t('match.stageTitle', { n: level.index, title: level.title }), brief: level.brief,
         theme: level.theme, seed: level.seed, ruleset: { ...level.ruleset },
         seats: buildSeats('ai', level.ai),
         ranked: false, allowUndo: false,
@@ -856,8 +899,8 @@ function handleAction(action, params) {
     case 'play-daily':
       startMatch({
         mode: 'daily', contentId: daily.id,
-        title: `Daily Pulse — ${daily.name}`,
-        brief: `Shared seed for ${daily.date}. One ranked result per day.`,
+        title: t('match.dailyTitle', { name: daily.name }),
+        brief: t('match.dailyBrief', { date: daily.date }),
         theme: daily.theme, seed: daily.seed, ruleset: { ...daily.ruleset },
         seats: buildSeats('ai', daily.ai),
         ranked: !progress.dailies[daily.date],
@@ -907,9 +950,9 @@ function handleAction(action, params) {
       break;
     case 'results-verify': {
       const rep = game.match?.replay;
-      if (!rep) { app.toast('No replay recorded.', { kind: 'error' }); break; }
+      if (!rep) { app.toast(t('toast.noReplay'), { kind: 'error' }); break; }
       const res = verifyReplay(rep);
-      app.toast(res.ok ? 'Replay verified — deterministic result confirmed ✓' : `Replay mismatch at tick ${res.mismatchTick}`, { kind: res.ok ? 'success' : 'error', ms: 3600 });
+      app.toast(res.ok ? t('toast.replayOk') : t('toast.replayBad', { tick: res.mismatchTick }), { kind: res.ok ? 'success' : 'error', ms: 3600 });
       break;
     }
 
@@ -917,20 +960,18 @@ function handleAction(action, params) {
     case 'host-local':
       startMatch({
         mode: 'hosted-local', contentId: 'local-2p',
-        title: 'Shared-screen 2P',
-        brief: 'P1: ← → move, Space serve. P2: A / D move, W serve.',
+        title: t('match.localTitle'),
+        brief: t('match.localBrief'),
         theme: 'neon-district', seed: ((Date.now() ^ 0x2b992) >>> 0) || 7,
         ruleset: {},
-        seats: buildSeats('human', null, [settings.displayName, 'Player 2']),
+        seats: buildSeats('human', null, [settings.displayName, t('match.player2')]),
         ranked: false, allowUndo: false,
       });
       break;
     case 'host-create':
     case 'host-ready':
     case 'host-start': {
-      const error = platform.hosted
-        ? 'Online rooms are provided by the host shell in this build.'
-        : 'Online rooms need the host shell. Shared-screen 2P works offline.';
+      const error = platform.hosted ? t('lobby.stubOnline') : t('lobby.stubOffline');
       app.close('lobby');
       app.show('lobby', { state: 'idle', error, title: 'Hosted Play' });
       break;
@@ -940,24 +981,24 @@ function handleAction(action, params) {
     // ---- settings / profile
     case 'remap':
       remapKey = params.key;
-      app.toast(`Press a key for “${params.key}”…`, { ms: 4000 });
+      app.toast(t('toast.pressKey', { key: params.key }), { ms: 4000 });
       break;
     case 'sync-cloud':
       platform.saveCloud({ settings, progress }).then((ok) => {
-        app.toast(ok ? 'Cloud save synced.' : 'Cloud save unavailable — local progress is safe.', { kind: ok ? 'success' : 'error' });
+        app.toast(ok ? t('toast.cloudOk') : t('toast.cloudBad'), { kind: ok ? 'success' : 'error' });
       });
       break;
     case 'reset-progress':
-      if (window.confirm('Reset ALL progress on this device? This cannot be undone.')) {
+      if (window.confirm(t('confirm.reset'))) {
         const fresh = defaultProgress();
         Object.assign(progress, fresh);
         saveProgress();
-        app.toast('Progress reset.');
+        app.toast(t('toast.resetDone'));
         app.close('settings');
       }
       break;
     case 'sign-in':
-      app.toast(platform.requestSignIn() ? 'Sign-in requested from the host shell.' : 'Sign-in is offered by the host shell when available.', { kind: 'info' });
+      app.toast(platform.requestSignIn() ? t('toast.signInRequested') : t('toast.signInUnavailable'), { kind: 'info' });
       break;
     case 'replay-tutorials': break; // informational checkbox (disabled)
 
@@ -969,7 +1010,7 @@ function handleAction(action, params) {
         game.match = LocalMatch.restore(snap.json, BUILD);
         game.ctx = {
           mode: game.match.mode, contentId: game.match.contentId,
-          title: 'Resumed match', brief: '',
+          title: t('match.resumed'), brief: '',
           theme: 'neon-district', seed: game.match.state.seed,
           ruleset: game.match.state.ruleset,
           seats: game.match.seats,
@@ -978,14 +1019,14 @@ function handleAction(action, params) {
         renderer.build(game.match.state.ruleset, 'neon-district', { side: 0, cvd: settings.accessibility.palette, view: settings.camera.view });
         app.closeAll();
         ui.hud.hidden = false;
-        ui.name0.textContent = game.match.seats[0].name || 'You';
-        ui.name1.textContent = game.match.seats[1].name || 'Opponent';
-        ui.objective.textContent = 'Resumed match.';
+        ui.name0.textContent = game.match.seats[0].name || t('hud.you');
+        ui.name1.textContent = game.match.seats[1].name || t('hud.opponent');
+        ui.objective.textContent = t('match.resumed');
         ui.sub.textContent = '';
         updateHud();
         resumeMatch();
       } catch {
-        app.toast('Snapshot could not be restored.', { kind: 'error' });
+        app.toast(t('toast.snapshotBad'), { kind: 'error' });
         storage.clear('snapshot');
         game.resumeSnapshot = null;
       }
@@ -998,15 +1039,15 @@ function handleAction(action, params) {
       break;
 
     default:
-      app.toast(`Unknown action: ${action}`, { kind: 'error' });
+      app.toast(t('toast.unknown', { action }), { kind: 'error' });
   }
 }
 
 function practiceCtx(diff) {
   return {
     mode: 'practice', contentId: 'practice-' + diff.id, ref: diff,
-    title: `Practice — ${diff.name}`,
-    brief: 'Unranked. Restart and undo are always available.',
+    title: t('match.practiceTitle', { name: diff.name }),
+    brief: t('match.practiceBrief'),
     theme: 'neon-district',
     seed: (Date.now() ^ 0x9e3779b9) >>> 0,
     ruleset: { ...diff.ruleset },
@@ -1080,13 +1121,13 @@ document.addEventListener('submit', (e) => {
     const name = String(new FormData(form).get('displayName') || '').trim().slice(0, 24);
     settings.displayName = name || 'Guest';
     saveSettings();
-    app.toast('Profile saved.', { kind: 'success' });
+    app.toast(t('toast.profileSaved'), { kind: 'success' });
     app.close('profile');
   } else if (form.dataset.form === 'join') {
     app.close('lobby');
     app.show('lobby', {
       state: 'idle',
-      error: 'Online rooms need the host shell. Shared-screen 2P works offline.',
+      error: t('lobby.stubOffline'),
       title: 'Hosted Play',
     });
   }

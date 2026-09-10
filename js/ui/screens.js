@@ -1,8 +1,10 @@
 // Semantic HTML screens (spec §3). Menus, text, forms, settings, and
 // assistive descriptions live in the DOM — the Three.js canvas is never the
-// only UI. Every builder returns HTML; user data is escaped.
+// only UI. Every builder returns HTML; user data is escaped. All user-facing
+// strings go through t() so screens re-render in the player's locale.
 
 import { escapeHtml, fmtTime, fmtInt } from './app.js';
+import { t, LOCALES, LOCALE_NAMES } from './i18n.js';
 import { JOURNEY_LEVELS, CHALLENGES, AI_LEVELS, PRACTICE_DIFFICULTIES } from '../content/levels.js';
 import { LESSONS } from '../content/tutorials.js';
 import { ACHIEVEMENTS } from '../content/achievements.js';
@@ -20,30 +22,30 @@ export const screenBuilders = {
     return `
     <div class="title-wrap">
       <h1 class="logo"><span class="logo-paddle" aria-hidden="true"></span>Paddle&nbsp;Pulse</h1>
-      <p class="tagline">A neon kinetic arena. Return the ball. Own the angle.</p>
+      <p class="tagline">${t('title.tagline')}</p>
       <div class="title-main">
-        <button class="btn btn-primary btn-huge" data-action="quick-play" data-autofocus>Play</button>
+        <button class="btn btn-primary btn-huge" data-action="quick-play" data-autofocus>${t('title.play')}</button>
       </div>
       <div class="title-secondary">
         <button class="card ${dailyDone ? 'done' : ''}" data-action="open-daily">
-          <span class="card-title">Daily Pulse</span>
-          <span class="card-sub">${escapeHtml(daily.name)} · ${dailyDone ? 'completed ✓' : 'new today'}</span>
+          <span class="card-title">${t('title.daily')}</span>
+          <span class="card-sub">${t('title.dailySub', { name: escapeHtml(daily.name), state: dailyDone ? t('title.dailyDone') : t('title.dailyNew') })}</span>
         </button>
         <button class="card" data-action="open-journey">
-          <span class="card-title">Journey</span>
-          <span class="card-sub">${cleared}/40 stages · ${totalStars}★</span>
+          <span class="card-title">${t('title.journey')}</span>
+          <span class="card-sub">${t('title.journeySub', { cleared, stars: totalStars })}</span>
         </button>
         <button class="card" data-action="open-profile">
           <span class="card-title">${escapeHtml(name)}</span>
-          <span class="card-sub">${progress.totals.wins} wins · streak ${progress.streak.current}</span>
+          <span class="card-sub">${t('title.profileSub', { wins: progress.totals.wins, streak: progress.streak.current })}</span>
         </button>
       </div>
-      <nav class="title-nav" aria-label="More">
-        <button class="btn" data-action="open-modes">All modes</button>
-        <button class="btn" data-action="open-achievements">Achievements</button>
-        <button class="btn" data-action="open-boards">Leaderboards</button>
-        <button class="btn" data-action="open-settings">Settings</button>
-        <button class="btn" data-action="open-help">Help</button>
+      <nav class="title-nav" aria-label="${t('title.navMore')}">
+        <button class="btn" data-action="open-modes">${t('nav.modes')}</button>
+        <button class="btn" data-action="open-achievements">${t('nav.achievements')}</button>
+        <button class="btn" data-action="open-boards">${t('nav.boards')}</button>
+        <button class="btn" data-action="open-settings">${t('nav.settings')}</button>
+        <button class="btn" data-action="open-help">${t('nav.help')}</button>
       </nav>
     </div>`;
   },
@@ -51,16 +53,16 @@ export const screenBuilders = {
   // -------------------------------------------------------------------------
   modes: () => `
     <div class="panel">
-      <h2>Choose a mode</h2>
+      <h2>${t('modes.title')}</h2>
       <div class="card-grid">
-        ${modeCard('learn', 'Learn', 'Interactive lessons — one rule at a time.', 'Unranked', '~1 min each')}
-        ${modeCard('journey', 'Journey', '40 authored stages, periodic mastery trials.', 'Unranked', '~2 min each')}
-        ${modeCard('daily', 'Daily Pulse', 'One shared seed per UTC day. Everyone plays the same match.', 'Ranked', '~2 min')}
-        ${modeCard('practice', 'Practice', 'Selectable difficulty, restart and undo. No rating impact.', 'Unranked', '~2 min')}
-        ${modeCard('challenge', 'Challenge', 'Constrained goals: move limits, speed floors, altered layouts.', 'Unranked', '~2 min')}
-        ${modeCard('hosted', 'Hosted Play', 'Private rooms with friends, or shared-screen 2P.', 'Ranked when hosted', '~3 min')}
+        ${modeCard('learn', 'chip.unranked', 'dur.lesson')}
+        ${modeCard('journey', 'chip.unranked', 'dur.stage')}
+        ${modeCard('daily', 'chip.ranked', 'dur.match')}
+        ${modeCard('practice', 'chip.unranked', 'dur.match')}
+        ${modeCard('challenge', 'chip.unranked', 'dur.match')}
+        ${modeCard('hosted', 'chip.rankedHosted', 'dur.hosted')}
       </div>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
@@ -77,8 +79,8 @@ export const screenBuilders = {
     }
     return `
     <div class="panel panel-wide">
-      <h2>Journey <span class="dim">— ${clearedCount}/40 cleared</span></h2>
-      <p class="dim">One new concept at a time, then combined, then tested. Mastery stages gate each chapter.</p>
+      <h2>${t('title.journey')} <span class="dim">${t('journey.cleared', { n: clearedCount })}</span></h2>
+      <p class="dim">${t('journey.blurb')}</p>
       ${chapters
         .map(
           (ch) => `
@@ -94,7 +96,7 @@ export const screenBuilders = {
               <button class="level-node ${l.mastery ? 'mastery' : ''} ${locked ? 'locked' : ''}" role="listitem"
                 ${locked ? 'disabled aria-disabled="true"' : ''}
                 data-action="journey-level" data-id="${l.id}"
-                aria-label="Stage ${l.index}: ${escapeHtml(l.title)}${l.mastery ? ' (mastery)' : ''}${locked ? ' — locked' : ''}">
+                aria-label="${escapeHtml(t('journey.ariaStage', { n: l.index, title: l.title }) + (l.mastery ? t('journey.ariaMastery') : '') + (locked ? t('journey.ariaLocked') : ''))}">
                 <span class="level-num">${l.index}</span>
                 ${stars(rec?.stars || 0)}
               </button>`;
@@ -103,15 +105,15 @@ export const screenBuilders = {
         </div>`
         )
         .join('')}
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`;
   },
 
   // -------------------------------------------------------------------------
   challenges: ({ progress }) => `
     <div class="panel">
-      <h2>Challenges</h2>
-      <p class="dim">Constrained goals. The rules change; your skill doesn't.</p>
+      <h2>${t('challenges.title')}</h2>
+      <p class="dim">${t('challenges.blurb')}</p>
       <div class="card-grid">
         ${CHALLENGES.map(
           (c) => `
@@ -122,24 +124,24 @@ export const screenBuilders = {
         </button>`
         ).join('')}
       </div>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
   learn: ({ settings }) => `
     <div class="panel">
-      <h2>Learn</h2>
-      <p class="dim">Short interactive lessons. Each asks you to perform the action — no lectures.</p>
+      <h2>${t('learn.title')}</h2>
+      <p class="dim">${t('learn.blurb')}</p>
       <div class="card-grid">
         ${LESSONS.map(
           (l, i) => `
         <button class="card ${settings.tutorialDone[l.id] ? 'done' : ''}" data-action="lesson" data-id="${l.id}">
           <span class="card-title">${i + 1}. ${escapeHtml(l.objective)} ${settings.tutorialDone[l.id] ? '✓' : ''}</span>
-          <span class="card-sub">${l.steps.length} step${l.steps.length > 1 ? 's' : ''}</span>
+          <span class="card-sub">${t(l.steps.length > 1 ? 'learn.stepMany' : 'learn.stepOne', { n: l.steps.length })}</span>
         </button>`
         ).join('')}
       </div>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
@@ -150,14 +152,14 @@ export const screenBuilders = {
       <dl class="rules-summary">
         ${rules.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}
       </dl>
-      <p><span class="chip ${ranked ? 'chip-ranked' : ''}">${ranked ? 'Ranked' : 'Unranked'}</span>
+      <p><span class="chip ${ranked ? 'chip-ranked' : ''}">${ranked ? t('chip.ranked') : t('chip.unranked')}</span>
          <span class="chip">${escapeHtml(players)}</span>
-         <span class="chip">~${escapeHtml(duration)}</span></p>
-      <p class="seed-chip" title="Seeded and inspectable">seed <code>${escapeHtml(String(seed))}</code></p>
-      ${assists ? `<label class="check"><input type="checkbox" data-setting="accessibility.timingAssist" ${assists.timingAssist ? 'checked' : ''}> Timing assist (wider paddle, declared on submission)</label>` : ''}
+         <span class="chip">${escapeHtml(duration)}</span></p>
+      <p class="seed-chip" title="${escapeHtml(t('setup.seedTitle'))}">${t('setup.seed')} <code>${escapeHtml(String(seed))}</code></p>
+      ${assists ? `<label class="check"><input type="checkbox" data-setting="accessibility.timingAssist" ${assists.timingAssist ? 'checked' : ''}> ${t('setup.timingAssist')}</label>` : ''}
       <div class="row-gap">
-        <button class="btn btn-primary btn-big" data-action="start-match" data-autofocus>${escapeHtml(startLabel || 'Start')}</button>
-        <button class="btn" data-action="back">Back</button>
+        <button class="btn btn-primary btn-big" data-action="start-match" data-autofocus>${escapeHtml(startLabel || t('common.start'))}</button>
+        <button class="btn" data-action="back">${t('common.back')}</button>
       </div>
     </div>`,
 
@@ -166,18 +168,18 @@ export const screenBuilders = {
     const done = progress.dailies[daily.date];
     return `
     <div class="panel">
-      <h2>Daily Pulse — ${escapeHtml(daily.name)}</h2>
-      <p class="dim">One shared seed and ruleset per UTC day. Same match for everyone, synchronized to platform time.</p>
+      <h2>${escapeHtml(t('daily.heading', { name: daily.name }))}</h2>
+      <p class="dim">${t('daily.blurb')}</p>
       <dl class="rules-summary">
-        <div><dt>Date (UTC)</dt><dd>${escapeHtml(daily.date)}</dd></div>
-        <div><dt>Seed</dt><dd><code>${daily.seed}</code></dd></div>
-        <div><dt>Target</dt><dd>${daily.ruleset.targetScore} points, win by ${daily.ruleset.winMargin}</dd></div>
-        <div><dt>Next daily in</dt><dd id="daily-countdown">${escapeHtml(countdownText)}</dd></div>
+        <div><dt>${t('daily.date')}</dt><dd>${escapeHtml(daily.date)}</dd></div>
+        <div><dt>${t('daily.seed')}</dt><dd><code>${daily.seed}</code></dd></div>
+        <div><dt>${t('setup.ruleTarget')}</dt><dd>${t('setup.valTarget', { score: daily.ruleset.targetScore, margin: daily.ruleset.winMargin })}</dd></div>
+        <div><dt>${t('daily.nextIn')}</dt><dd id="daily-countdown">${escapeHtml(countdownText)}</dd></div>
       </dl>
-      ${done ? `<p class="chip">Completed: ${done.score[0]}–${done.score[1]} ${done.won ? '· won' : ''}</p>` : '<p class="chip chip-ranked">Ranked · one result per day counts</p>'}
+      ${done ? `<p class="chip">${t('daily.completed', { a: done.score[0], b: done.score[1], won: done.won ? t('daily.won') : '' })}</p>` : `<p class="chip chip-ranked">${t('daily.rankedChip')}</p>`}
       <div class="row-gap">
-        <button class="btn btn-primary btn-big" data-action="play-daily" data-autofocus>${done ? 'Play again (unranked)' : 'Play the daily'}</button>
-        <button class="btn" data-action="back">Back</button>
+        <button class="btn btn-primary btn-big" data-action="play-daily" data-autofocus>${done ? t('daily.playAgain') : t('daily.play')}</button>
+        <button class="btn" data-action="back">${t('common.back')}</button>
       </div>
     </div>`;
   },
@@ -185,55 +187,55 @@ export const screenBuilders = {
   // -------------------------------------------------------------------------
   lobby: ({ rooms, state, code, error, roster, isHost, ready }) => `
     <div class="panel">
-      <h2>Hosted Play</h2>
+      <h2>${t('lobby.title')}</h2>
       ${error ? `<p class="error-text" role="alert">${escapeHtml(error)}</p>` : ''}
       ${
         state === 'idle'
           ? `
-        <p class="dim">Create a private room and share its code, join with a code, or play shared-screen.</p>
+        <p class="dim">${t('lobby.idleBlurb')}</p>
         <div class="row-gap">
-          <button class="btn btn-primary" data-action="host-create" data-autofocus>Create private room</button>
+          <button class="btn btn-primary" data-action="host-create" data-autofocus>${t('lobby.create')}</button>
           <form data-form="join" class="row-gap inline-form">
-            <input name="code" inputmode="text" maxlength="6" placeholder="ROOM CODE" aria-label="Room code" autocomplete="off">
-            <button class="btn" type="submit">Join</button>
+            <input name="code" inputmode="text" maxlength="6" placeholder="${t('lobby.codePlaceholder')}" aria-label="${t('lobby.codePlaceholder')}" autocomplete="off">
+            <button class="btn" type="submit">${t('lobby.join')}</button>
           </form>
-          <button class="btn" data-action="host-local">Shared-screen 2P</button>
+          <button class="btn" data-action="host-local">${t('lobby.local')}</button>
         </div>
         <p class="dim" id="lobby-net-status">${escapeHtml(rooms || '')}</p>`
           : `
-        <p>Room <code class="room-code">${escapeHtml(code || '')}</code> — share this code.</p>
+        <p>${escapeHtml(t('lobby.roomText', { code: code || '' }))}</p>
         <ul class="roster">
           ${(roster || [])
             .map(
               (r) => `
             <li class="${r.ready ? 'ready' : ''}">
-              <span class="dot" aria-hidden="true"></span>${escapeHtml(r.name)} ${r.you ? '(you)' : ''} — ${r.ready ? 'ready' : 'not ready'}
+              <span class="dot" aria-hidden="true"></span>${escapeHtml(r.name)} ${r.you ? t('lobby.you') : ''} — ${r.ready ? t('lobby.ready') : t('lobby.notReady')}
             </li>`
             )
             .join('')}
         </ul>
         <div class="row-gap">
-          <button class="btn btn-primary" data-action="host-ready">${ready ? 'Unready' : 'Ready'}</button>
-          ${isHost ? '<button class="btn" data-action="host-start">Start match</button>' : ''}
-          <button class="btn" data-action="host-leave">Leave</button>
+          <button class="btn btn-primary" data-action="host-ready">${ready ? t('lobby.unreadyBtn') : t('lobby.readyBtn')}</button>
+          ${isHost ? `<button class="btn" data-action="host-start">${t('lobby.start')}</button>` : ''}
+          <button class="btn" data-action="host-leave">${t('lobby.leave')}</button>
         </div>
-        <p class="dim">Reconnects restore the live snapshot and a “while you were away” summary.</p>`
+        <p class="dim">${t('lobby.reconnectNote')}</p>`
       }
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
   pause: ({ objective, canUndo }) => `
     <div class="panel">
-      <h2>Paused</h2>
+      <h2>${t('pause.title')}</h2>
       <p class="dim">${escapeHtml(objective)}</p>
       <div class="col-gap">
-        <button class="btn btn-primary btn-big" data-action="resume" data-autofocus>Resume</button>
-        ${canUndo ? '<button class="btn" data-action="undo">Undo last point</button>' : ''}
-        <button class="btn" data-action="restart-match">Restart match</button>
-        <button class="btn" data-action="open-settings">Settings</button>
-        <button class="btn" data-action="open-help">Help</button>
-        <button class="btn btn-danger" data-action="leave-match">Leave match</button>
+        <button class="btn btn-primary btn-big" data-action="resume" data-autofocus>${t('pause.resume')}</button>
+        ${canUndo ? `<button class="btn" data-action="undo">${t('pause.undo')}</button>` : ''}
+        <button class="btn" data-action="restart-match">${t('pause.restart')}</button>
+        <button class="btn" data-action="open-settings">${t('nav.settings')}</button>
+        <button class="btn" data-action="open-help">${t('nav.help')}</button>
+        <button class="btn btn-danger" data-action="leave-match">${t('pause.leave')}</button>
       </div>
     </div>`,
 
@@ -243,7 +245,7 @@ export const screenBuilders = {
       <h2 class="result-headline ${won ? 'won' : 'lost'}">${escapeHtml(headline)}</h2>
       ${sub ? `<p class="dim">${escapeHtml(sub)}</p>` : ''}
       ${starsEarned != null ? `<div class="stars-big">${stars(starsEarned)}</div>` : ''}
-      <h3>Score breakdown</h3>
+      <h3>${t('results.breakdown')}</h3>
       <table class="breakdown">
         <tbody>
           ${breakdown.map(([k, v]) => `<tr><th scope="row">${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`).join('')}
@@ -251,17 +253,17 @@ export const screenBuilders = {
       </table>
       ${
         unlocked?.length
-          ? `<h3>Achievements unlocked</h3><ul class="unlock-list">${unlocked
+          ? `<h3>${t('results.achievements')}</h3><ul class="unlock-list">${unlocked
               .map((a) => `<li><span aria-hidden="true">${a.icon}</span> <strong>${escapeHtml(a.name)}</strong> — ${escapeHtml(a.desc)}</li>`)
               .join('')}</ul>`
           : ''
       }
       ${comparison ? `<p class="dim">${escapeHtml(comparison)}</p>` : ''}
       <div class="row-gap">
-        <button class="btn btn-primary" data-action="results-next" data-autofocus>${escapeHtml(nextLabel || 'Continue')}</button>
-        <button class="btn" data-action="results-retry">Retry</button>
-        ${canVerify ? '<button class="btn" data-action="results-verify">Verify replay</button>' : ''}
-        <button class="btn" data-action="leave-match">Modes</button>
+        <button class="btn btn-primary" data-action="results-next" data-autofocus>${escapeHtml(nextLabel || t('common.cont'))}</button>
+        <button class="btn" data-action="results-retry">${t('results.retry')}</button>
+        ${canVerify ? `<button class="btn" data-action="results-verify">${t('results.verify')}</button>` : ''}
+        <button class="btn" data-action="leave-match">${t('results.modes')}</button>
       </div>
     </div>`,
 
@@ -270,77 +272,86 @@ export const screenBuilders = {
     const a = settings.accessibility;
     return `
     <div class="panel panel-wide settings-panel">
-      <h2>Settings</h2>
+      <h2>${t('settings.title')}</h2>
       <div class="settings-cols">
+        <section aria-labelledby="set-lang">
+          <h3 id="set-lang">${t('settings.language')}</h3>
+          <label class="select-row">${t('settings.language')}
+            <select data-setting="language">
+              <option value="auto" ${settings.language === 'auto' ? 'selected' : ''}>${t('settings.langAuto')}</option>
+              ${LOCALES.map((l) => `<option value="${l}" ${settings.language === l ? 'selected' : ''}>${LOCALE_NAMES[l]}</option>`).join('')}
+            </select>
+          </label>
+        </section>
         <section aria-labelledby="set-audio">
-          <h3 id="set-audio">Audio</h3>
+          <h3 id="set-audio">${t('settings.audio')}</h3>
           ${['music', 'effects', 'ambience', 'voice']
             .map(
               (b) => `
-          <label class="slider-row">${b[0].toUpperCase() + b.slice(1)}
+          <label class="slider-row">${t('settings.' + b)}
             <input type="range" min="0" max="1" step="0.05" value="${settings.audio[b]}" data-audio="${b}">
             <span class="slider-val">${Math.round(settings.audio[b] * 100)}%</span>
           </label>`
             )
             .join('')}
-          <label class="check"><input type="checkbox" data-setting="audio.muted" ${settings.audio.muted ? 'checked' : ''}> Mute all</label>
-          <label class="check"><input type="checkbox" data-setting="accessibility.captions" ${a.captions ? 'checked' : ''}> Captions for meaningful audio</label>
+          <label class="check"><input type="checkbox" data-setting="audio.muted" ${settings.audio.muted ? 'checked' : ''}> ${t('settings.muteAll')}</label>
+          <label class="check"><input type="checkbox" data-setting="accessibility.captions" ${a.captions ? 'checked' : ''}> ${t('settings.captions')}</label>
         </section>
         <section aria-labelledby="set-graphics">
-          <h3 id="set-graphics">Graphics</h3>
-          <label class="select-row">Quality tier
+          <h3 id="set-graphics">${t('settings.graphics')}</h3>
+          <label class="select-row">${t('settings.quality')}
             <select data-setting="graphics.tier">
-              ${tiers.map((t) => `<option value="${t}" ${settings.graphics.tier === t ? 'selected' : ''}>${t}</option>`).join('')}
+              ${tiers.map((tier) => `<option value="${tier}" ${settings.graphics.tier === tier ? 'selected' : ''}>${tier}</option>`).join('')}
             </select>
           </label>
-          <label class="check"><input type="checkbox" data-setting="graphics.trails" ${settings.graphics.trails ? 'checked' : ''}> Ball trails</label>
-          <label class="select-row">Camera
+          <label class="check"><input type="checkbox" data-setting="graphics.trails" ${settings.graphics.trails ? 'checked' : ''}> ${t('settings.trails')}</label>
+          <label class="select-row">${t('settings.camera')}
             <select data-setting="camera.view">
-              <option value="broadcast" ${settings.camera.view === 'broadcast' ? 'selected' : ''}>Broadcast</option>
-              <option value="behind" ${settings.camera.view === 'behind' ? 'selected' : ''}>Behind paddle</option>
+              <option value="broadcast" ${settings.camera.view === 'broadcast' ? 'selected' : ''}>${t('settings.camBroadcast')}</option>
+              <option value="behind" ${settings.camera.view === 'behind' ? 'selected' : ''}>${t('settings.camBehind')}</option>
             </select>
           </label>
         </section>
         <section aria-labelledby="set-a11y">
-          <h3 id="set-a11y">Accessibility</h3>
-          <label class="check"><input type="checkbox" data-setting="accessibility.reducedMotion" ${a.reducedMotion ? 'checked' : ''}> Reduced motion</label>
-          <label class="check"><input type="checkbox" data-setting="accessibility.highContrast" ${a.highContrast ? 'checked' : ''}> High contrast</label>
-          <label class="select-row">Color palette
+          <h3 id="set-a11y">${t('settings.a11y')}</h3>
+          <label class="check"><input type="checkbox" data-setting="accessibility.reducedMotion" ${a.reducedMotion ? 'checked' : ''}> ${t('settings.reducedMotion')}</label>
+          <label class="check"><input type="checkbox" data-setting="accessibility.highContrast" ${a.highContrast ? 'checked' : ''}> ${t('settings.highContrast')}</label>
+          <label class="select-row">${t('settings.palette')}
             <select data-setting="accessibility.palette">
               ${['none', 'deuteranopia', 'protanopia', 'tritanopia', 'high-contrast'].map((p) => `<option value="${p}" ${a.palette === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
           </label>
-          <label class="slider-row">Text size
+          <label class="slider-row">${t('settings.textSize')}
             <input type="range" min="0.85" max="1.4" step="0.05" value="${a.textScale}" data-setting-range="accessibility.textScale">
             <span class="slider-val">${Math.round(a.textScale * 100)}%</span>
           </label>
-          <label class="check"><input type="checkbox" data-setting="accessibility.leftHanded" ${a.leftHanded ? 'checked' : ''}> Left-handed controls</label>
-          <label class="check"><input type="checkbox" data-setting="accessibility.timingAssist" ${a.timingAssist ? 'checked' : ''}> Timing assist (declared on submissions)</label>
-          <label class="check"><input type="checkbox" data-setting="accessibility.haptics" ${a.haptics ? 'checked' : ''}> Haptics</label>
-          <label class="check"><input type="checkbox" data-action="replay-tutorials" ${Object.keys(settings.tutorialDone).length === 0 ? 'checked' : ''} disabled> Tutorial replay available from Learn</label>
+          <label class="check"><input type="checkbox" data-setting="accessibility.leftHanded" ${a.leftHanded ? 'checked' : ''}> ${t('settings.leftHanded')}</label>
+          <label class="check"><input type="checkbox" data-setting="accessibility.timingAssist" ${a.timingAssist ? 'checked' : ''}> ${t('settings.timingAssist')}</label>
+          <label class="check"><input type="checkbox" data-setting="accessibility.haptics" ${a.haptics ? 'checked' : ''}> ${t('settings.haptics')}</label>
+          <label class="check"><input type="checkbox" data-action="replay-tutorials" ${Object.keys(settings.tutorialDone).length === 0 ? 'checked' : ''} disabled> ${t('settings.tutorialReplay')}</label>
         </section>
         <section aria-labelledby="set-controls">
-          <h3 id="set-controls">Controls</h3>
+          <h3 id="set-controls">${t('settings.controls')}</h3>
           <ul class="bindings">
             ${Object.entries(settings.controls.keys)
               .map(([k, v]) => `<li><span>${k}</span><button class="btn btn-small" data-action="remap" data-key="${k}">${escapeHtml(v)}</button></li>`)
               .join('')}
           </ul>
-          <p class="dim">Gamepad: left stick moves, A serves, Start pauses. Pointer/touch: drag to move, tap to serve.</p>
-          <h3>Data</h3>
-          <label class="check"><input type="checkbox" data-setting="consent.telemetry" ${settings.consent.telemetry ? 'checked' : ''}> Share anonymous usage events</label>
-          <button class="btn btn-small" data-action="sync-cloud">Sync cloud save</button>
-          <button class="btn btn-small btn-danger" data-action="reset-progress">Reset all progress</button>
+          <p class="dim">${t('settings.gamepadNote')}</p>
+          <h3>${t('settings.data')}</h3>
+          <label class="check"><input type="checkbox" data-setting="consent.telemetry" ${settings.consent.telemetry ? 'checked' : ''}> ${t('settings.telemetry')}</label>
+          <button class="btn btn-small" data-action="sync-cloud">${t('settings.syncCloud')}</button>
+          <button class="btn btn-small btn-danger" data-action="reset-progress">${t('settings.reset')}</button>
         </section>
       </div>
-      <div class="row-end"><button class="btn" data-action="back" data-autofocus>Done</button></div>
+      <div class="row-end"><button class="btn" data-action="back" data-autofocus>${t('settings.done')}</button></div>
     </div>`;
   },
 
   // -------------------------------------------------------------------------
   achievements: ({ progress }) => `
     <div class="panel">
-      <h2>Achievements</h2>
+      <h2>${t('achievements.title')}</h2>
       <div class="card-grid">
         ${ACHIEVEMENTS.map((a) => {
           const rec = progress.achievements[a.key];
@@ -350,24 +361,24 @@ export const screenBuilders = {
           <div class="card achievement ${done ? 'done' : ''}">
             <span class="card-title"><span aria-hidden="true">${a.icon}</span> ${escapeHtml(a.name)}</span>
             <span class="card-sub">${escapeHtml(a.desc)}</span>
-            ${a.progress ? `<span class="progress-bar"><span style="width:${Math.min(100, (cur / a.progress) * 100)}%"></span></span><span class="dim">${done ? 'unlocked' : `${fmtInt(cur)}/${fmtInt(a.progress)}`}</span>` : done ? '<span class="dim">unlocked</span>' : '<span class="dim">locked</span>'}
+            ${a.progress ? `<span class="progress-bar"><span style="width:${Math.min(100, (cur / a.progress) * 100)}%"></span></span><span class="dim">${done ? t('achievements.unlocked') : t('achievements.progressFmt', { cur: fmtInt(cur), total: fmtInt(a.progress) })}</span>` : done ? `<span class="dim">${t('achievements.unlocked')}</span>` : `<span class="dim">${t('achievements.locked')}</span>`}
           </div>`;
         }).join('')}
       </div>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
   boards: ({ local, daily, date }) => `
     <div class="panel">
-      <h2>Leaderboards</h2>
-      <h3>Daily — ${escapeHtml(date)}</h3>
-      ${boardTable(daily, ['name', 'score', 'duration'], ['Player', 'Goals', 'Time'])}
-      <h3>Local — primary metric (wins)</h3>
-      ${boardTable(local, ['name', 'score', 'duration'], ['Player', 'Wins', 'Best time'])}
-      <h3>Friends</h3>
-      <p class="dim">Friends boards appear when signed in through the host shell. Presence and privacy settings are always honored.</p>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <h2>${t('boards.title')}</h2>
+      <h3>${escapeHtml(t('boards.dailyFmt', { date }))}</h3>
+      ${boardTable(daily, ['name', 'score', 'duration'], [t('boards.colPlayer'), t('boards.colGoals'), t('boards.colTime')])}
+      <h3>${t('boards.local')}</h3>
+      ${boardTable(local, ['name', 'score', 'duration'], [t('boards.colPlayer'), t('boards.colWins'), t('boards.colBestTime')])}
+      <h3>${t('boards.friends')}</h3>
+      <p class="dim">${t('boards.friendsBlurb')}</p>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
@@ -375,65 +386,65 @@ export const screenBuilders = {
     const k = settings.controls.keys;
     return `
     <div class="panel panel-wide">
-      <h2>How to play</h2>
+      <h2>${t('help.title')}</h2>
       <div class="card-grid">
-        <div class="card"><span class="card-title">Goal</span><span class="card-sub">Return the speeding ball past your opponent's paddle and through the far goal line. First to the target score wins — you must lead by the margin.</span></div>
-        <div class="card"><span class="card-title">Move</span><span class="card-sub">Drag on the arena, tap either side, or press ${escapeHtml(k.left)} / ${escapeHtml(k.right)}. Gamepad: left stick. Your paddle rides your goal line.</span></div>
-        <div class="card"><span class="card-title">Serve</span><span class="card-sub">When the ball docks on your paddle, press ${escapeHtml(k.serve)}, tap the ball, or use the Serve button. The glowing paddle holds the serve.</span></div>
-        <div class="card"><span class="card-title">Angles</span><span class="card-sub">The ball leaves your paddle at the angle you strike it: center goes straight, edges bend wide. Every return also gains pace.</span></div>
-        <div class="card"><span class="card-title">Obstacles</span><span class="card-sub">Amber deflectors and moving blockers rebound the ball. Watch the sweep rhythm — it never changes mid-match.</span></div>
-        <div class="card"><span class="card-title">Fair play</span><span class="card-sub">Every match is seeded and replayable. Identical seed + inputs always produce the identical result — check any result with “Verify replay”.</span></div>
+        <div class="card"><span class="card-title">${t('help.goal')}</span><span class="card-sub">${t('help.goalBody')}</span></div>
+        <div class="card"><span class="card-title">${t('help.move')}</span><span class="card-sub">${escapeHtml(t('help.moveBody', { left: k.left, right: k.right }))}</span></div>
+        <div class="card"><span class="card-title">${t('help.serve')}</span><span class="card-sub">${escapeHtml(t('help.serveBody', { serve: k.serve }))}</span></div>
+        <div class="card"><span class="card-title">${t('help.angles')}</span><span class="card-sub">${t('help.anglesBody')}</span></div>
+        <div class="card"><span class="card-title">${t('help.obstacles')}</span><span class="card-sub">${t('help.obstaclesBody')}</span></div>
+        <div class="card"><span class="card-title">${t('help.fair')}</span><span class="card-sub">${t('help.fairBody')}</span></div>
       </div>
-      <h3>Keys</h3>
+      <h3>${t('help.keys')}</h3>
       <ul class="bindings">
-        <li><span>Pause</span><kbd>${escapeHtml(k.pause)}</kbd></li>
-        <li><span>Undo (practice)</span><kbd>${escapeHtml(k.undo)}</kbd></li>
-        <li><span>Camera view</span><kbd>${escapeHtml(k.camera)}</kbd></li>
-        <li><span>Hint</span><kbd>${escapeHtml(k.hint)}</kbd></li>
+        <li><span>${t('help.keyPause')}</span><kbd>${escapeHtml(k.pause)}</kbd></li>
+        <li><span>${t('help.keyUndo')}</span><kbd>${escapeHtml(k.undo)}</kbd></li>
+        <li><span>${t('help.keyCamera')}</span><kbd>${escapeHtml(k.camera)}</kbd></li>
+        <li><span>${t('help.keyHint')}</span><kbd>${escapeHtml(k.hint)}</kbd></li>
       </ul>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`;
   },
 
   // -------------------------------------------------------------------------
   profile: ({ settings, progress, hosted }) => `
     <div class="panel">
-      <h2>Profile</h2>
+      <h2>${t('profile.title')}</h2>
       <form data-form="profile" class="col-gap">
-        <label>Display name
+        <label>${t('profile.displayName')}
           <input name="displayName" maxlength="24" value="${escapeHtml(settings.displayName)}" autocomplete="off">
         </label>
-        <button class="btn btn-primary" type="submit" data-autofocus>Save</button>
+        <button class="btn btn-primary" type="submit" data-autofocus>${t('profile.save')}</button>
       </form>
-      ${hosted ? '<button class="btn" data-action="sign-in">Sign in for durable progress</button>' : '<p class="dim">Guest mode — progress lives on this device. Sign-in is offered by the host shell when available.</p>'}
-      <label class="check"><input type="checkbox" data-setting="privacy.hiddenProfile" ${settings.privacy.hiddenProfile ? 'checked' : ''}> Hide my profile from friends' boards</label>
-      <h3>Career</h3>
+      ${hosted ? `<button class="btn" data-action="sign-in">${t('profile.signIn')}</button>` : `<p class="dim">${t('profile.guest')}</p>`}
+      <label class="check"><input type="checkbox" data-setting="privacy.hiddenProfile" ${settings.privacy.hiddenProfile ? 'checked' : ''}> ${t('profile.hidden')}</label>
+      <h3>${t('profile.career')}</h3>
       <dl class="rules-summary">
-        <div><dt>Matches</dt><dd>${fmtInt(progress.totals.matches)}</dd></div>
-        <div><dt>Wins</dt><dd>${fmtInt(progress.totals.wins)}</dd></div>
-        <div><dt>Best streak</dt><dd>${fmtInt(progress.streak.best)}</dd></div>
-        <div><dt>Angled returns</dt><dd>${fmtInt(progress.totals.angledHits)}</dd></div>
-        <div><dt>Rating (display)</dt><dd>${Math.round(progress.rating.mu * 40)}</dd></div>
+        <div><dt>${t('profile.matches')}</dt><dd>${fmtInt(progress.totals.matches)}</dd></div>
+        <div><dt>${t('profile.wins')}</dt><dd>${fmtInt(progress.totals.wins)}</dd></div>
+        <div><dt>${t('profile.bestStreak')}</dt><dd>${fmtInt(progress.streak.best)}</dd></div>
+        <div><dt>${t('profile.angled')}</dt><dd>${fmtInt(progress.totals.angledHits)}</dd></div>
+        <div><dt>${t('profile.rating')}</dt><dd>${Math.round(progress.rating.mu * 40)}</dd></div>
       </dl>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   // -------------------------------------------------------------------------
   resume: ({ tickSeconds }) => `
     <div class="panel">
-      <h2>Match in progress</h2>
-      <p class="dim">A safe snapshot was saved ${escapeHtml(tickSeconds)} ago. Backgrounding always pauses solo play.</p>
+      <h2>${t('resume.title')}</h2>
+      <p class="dim">${escapeHtml(t('resume.blurb', { ago: tickSeconds }))}</p>
       <div class="row-gap">
-        <button class="btn btn-primary" data-action="resume-snapshot" data-autofocus>Resume match</button>
-        <button class="btn" data-action="discard-snapshot">Discard</button>
+        <button class="btn btn-primary" data-action="resume-snapshot" data-autofocus>${t('resume.resume')}</button>
+        <button class="btn" data-action="discard-snapshot">${t('resume.discard')}</button>
       </div>
     </div>`,
 
   compat: () => `
     <div class="panel">
-      <h2>3D unavailable</h2>
-      <p>Paddle Pulse needs WebGL for its arena. Your browser or device blocked it. Your account and progress are safe — try updating the browser, enabling hardware acceleration, or another device.</p>
-      <div class="row-end"><button class="btn" data-action="back">Back</button></div>
+      <h2>${t('compat.title')}</h2>
+      <p>${t('compat.body')}</p>
+      <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
   boot: ({ pct, label }) => `
@@ -444,25 +455,34 @@ export const screenBuilders = {
     </div>`,
 };
 
-function modeCard(id, title, sub, ranked, duration) {
+const MODE_TITLES = {
+  learn: 'modes.learn',
+  journey: 'title.journey',
+  daily: 'title.daily',
+  practice: 'modes.practice',
+  challenge: 'modes.challenge',
+  hosted: 'lobby.title',
+};
+
+function modeCard(id, rankedKey, durKey) {
   return `
     <button class="card" data-action="mode-${id}">
-      <span class="card-title">${title}</span>
-      <span class="card-sub">${sub}</span>
-      <span class="chip ${ranked.startsWith('Ranked') ? 'chip-ranked' : ''}">${ranked}</span>
-      <span class="chip">${duration}</span>
+      <span class="card-title">${t(MODE_TITLES[id])}</span>
+      <span class="card-sub">${t('modes.' + id + 'Sub')}</span>
+      <span class="chip ${rankedKey === 'chip.ranked' || rankedKey === 'chip.rankedHosted' ? 'chip-ranked' : ''}">${t(rankedKey)}</span>
+      <span class="chip">${t(durKey)}</span>
     </button>`;
 }
 
 function boardTable(rows, cols, heads) {
-  if (!rows?.length) return '<p class="dim">No entries yet — be the first.</p>';
+  if (!rows?.length) return `<p class="dim">${t('boards.empty')}</p>`;
   return `<table class="board"><thead><tr>${heads.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead>
     <tbody>${rows
       .slice(0, 20)
       .map(
         (r) =>
           `<tr>${cols
-            .map((c) => `<td>${c === 'duration' ? fmtTime(r[c]) : escapeHtml(String(r[c]))}${c === 'score' && r.assists ? ' <span class="chip" title="declared assists">A</span>' : ''}</td>`)
+            .map((c) => `<td>${c === 'duration' ? fmtTime(r[c]) : escapeHtml(String(r[c]))}${c === 'score' && r.assists ? ` <span class="chip" title="${escapeHtml(t('setup.timingAssist'))}">A</span>` : ''}</td>`)
             .join('')}</tr>`
       )
       .join('')}</tbody></table>`;

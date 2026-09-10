@@ -14,6 +14,7 @@ export class App {
     this.captionEl = document.getElementById('captions');
     this.stack = [];
     this.builders = {};
+    this._params = new Map(); // last params per open screen, for rerender()
     this._restoreFocus = new Map();
     this._captionTimer = null;
 
@@ -48,10 +49,12 @@ export class App {
     el.dataset.screen = name;
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
-    el.setAttribute('aria-label', params.title || name);
     el.innerHTML = build(params);
+    // Dialog label mirrors the visible (localized) heading.
+    el.setAttribute('aria-label', el.querySelector('h1, h2')?.textContent?.trim() || params.title || name);
     this.screensRoot.appendChild(el);
     this.stack.push(name);
+    this._params.set(name, params);
     this._restoreFocus.set(name, previous);
     document.body.classList.add('has-screen');
     queueMicrotask(() => {
@@ -67,6 +70,7 @@ export class App {
     const screenName = this.stack.splice(idx, 1)[0];
     const el = this.screensRoot.querySelector(`[data-screen="${screenName}"]`);
     el?.remove();
+    this._params.delete(screenName);
     const restore = this._restoreFocus.get(screenName);
     this._restoreFocus.delete(screenName);
     if (this.stack.length === 0) document.body.classList.remove('has-screen');
@@ -79,6 +83,15 @@ export class App {
 
   isOpen(name) {
     return this.stack.includes(name);
+  }
+
+  // Rebuild every open screen in place (used when the locale changes).
+  rerender() {
+    for (const name of [...this.stack]) {
+      const el = this.screensRoot.querySelector(`[data-screen="${name}"]`);
+      const build = this.builders[name];
+      if (el && build) el.innerHTML = build(this._params.get(name) || {});
+    }
   }
 
   top() {

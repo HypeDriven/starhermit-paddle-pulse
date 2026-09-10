@@ -84,6 +84,7 @@ export function defaultSettings() {
   return {
     v: SETTINGS_VERSION,
     displayName: 'Guest',
+    language: 'auto', // 'auto' detects from navigator; otherwise a LOCALES tag
     privacy: { hiddenProfile: false },
     audio: { music: 0.7, effects: 0.9, ambience: 0.5, voice: 0.8, muted: false },
     graphics: { tier: 'auto', bloom: true, trails: true },

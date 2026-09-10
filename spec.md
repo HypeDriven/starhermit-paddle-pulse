@@ -160,7 +160,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `rules`: pure deterministic state transitions, legality, scoring, seeded random stream.
 - `session`: local or hosted commands, snapshots, prediction policy, reconnect, replay.
 - `render`: Three.js scene graph, semantic entity views, camera, lighting, VFX, quality.
-- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
+- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror. Localization ships the eight platform locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) in a keyed string dictionary; the browser language is detected by default and any locale can be forced from Settings, re-rendering open screens in place.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
 - `platform`: token-aware REST/WebSocket adapter, retries, rate-limit handling, telemetry consent.

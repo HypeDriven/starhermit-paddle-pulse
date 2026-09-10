@@ -8,6 +8,7 @@ import { LESSONS } from '../js/content/tutorials.js';
 import { ACHIEVEMENTS } from '../js/content/achievements.js';
 import { dailyContent, utcDateString } from '../js/content/daily.js';
 import { validateAllContent, simulateToTerminal } from '../js/content/validate.js';
+import { LOCALES, resolvedStrings, t, setLocale, detectLocale } from '../js/ui/i18n.js';
 
 test('launch scope: ≥40 authored stages, 5 themes, 6 challenges, 5 lessons', () => {
   assert.ok(JOURNEY_LEVELS.length >= 40);
@@ -72,3 +73,29 @@ test('practice difficulties map to valid AI levels', () => {
     assert.ok(d.ai >= 0 && d.ai < AI_LEVELS.length);
   }
 });
+
+test('localization ships the eight platform locales, each with the full key set', () => {
+  const required = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
+  assert.deepEqual(LOCALES, required);
+  const enKeys = Object.keys(resolvedStrings('en-US'));
+  assert.ok(enKeys.length >= 200, 'dictionary covers the UI chrome');
+  for (const l of LOCALES) {
+    const keys = Object.keys(resolvedStrings(l));
+    assert.deepEqual(keys, enKeys, `${l} key parity`);
+    for (const k of enKeys) {
+      assert.ok(resolvedStrings(l)[k].trim().length > 0, `${l}:${k} non-empty`);
+    }
+  }
+});
+
+test('localization runtime: interpolation, fallback, and detection', () => {
+  setLocale('de-DE');
+  assert.equal(t('results.victory'), 'Sieg');
+  assert.equal(t('hud.subFmt', { target: 5, margin: 2 }), '5 zum Sieg · Vorsprung 2');
+  assert.equal(t('nonexistent.key'), 'nonexistent.key'); // falls back to the key
+  assert.equal(detectLocale(['es-MX', 'en']), 'es-419');
+  assert.equal(detectLocale(['pt']), 'pt-BR');
+  assert.equal(detectLocale(['xx-YY']), 'en-US');
+  setLocale('en-US');
+});
+
