@@ -13,6 +13,13 @@ import { THEMES } from '../content/themes.js';
 const stars = (n) =>
   `<span class="stars" aria-label="${n} of 3 stars">${[1, 2, 3].map((i) => `<span class="star ${i <= n ? 'on' : ''}" aria-hidden="true">★</span>`).join('')}</span>`;
 
+const SYNC_LABEL_KEY = {
+  offline: 'sync.stateOffline',
+  saving: 'sync.stateSaving',
+  synced: 'sync.stateSynced',
+  error: 'sync.stateError',
+};
+
 export const screenBuilders = {
   // -------------------------------------------------------------------------
   title: ({ progress, daily, name }) => {
@@ -185,42 +192,18 @@ export const screenBuilders = {
   },
 
   // -------------------------------------------------------------------------
-  lobby: ({ rooms, state, code, error, roster, isHost, ready }) => `
+  // Online rooms are not part of this build — the lobby offers shared-screen
+  // 2P only, with an honest note about online play.
+  lobby: ({ rooms, error }) => `
     <div class="panel">
       <h2>${t('lobby.title')}</h2>
       ${error ? `<p class="error-text" role="alert">${escapeHtml(error)}</p>` : ''}
-      ${
-        state === 'idle'
-          ? `
-        <p class="dim">${t('lobby.idleBlurb')}</p>
-        <div class="row-gap">
-          <button class="btn btn-primary" data-action="host-create" data-autofocus>${t('lobby.create')}</button>
-          <form data-form="join" class="row-gap inline-form">
-            <input name="code" inputmode="text" maxlength="6" placeholder="${t('lobby.codePlaceholder')}" aria-label="${t('lobby.codePlaceholder')}" autocomplete="off">
-            <button class="btn" type="submit">${t('lobby.join')}</button>
-          </form>
-          <button class="btn" data-action="host-local">${t('lobby.local')}</button>
-        </div>
-        <p class="dim" id="lobby-net-status">${escapeHtml(rooms || '')}</p>`
-          : `
-        <p>${escapeHtml(t('lobby.roomText', { code: code || '' }))}</p>
-        <ul class="roster">
-          ${(roster || [])
-            .map(
-              (r) => `
-            <li class="${r.ready ? 'ready' : ''}">
-              <span class="dot" aria-hidden="true"></span>${escapeHtml(r.name)} ${r.you ? t('lobby.you') : ''} — ${r.ready ? t('lobby.ready') : t('lobby.notReady')}
-            </li>`
-            )
-            .join('')}
-        </ul>
-        <div class="row-gap">
-          <button class="btn btn-primary" data-action="host-ready">${ready ? t('lobby.unreadyBtn') : t('lobby.readyBtn')}</button>
-          ${isHost ? `<button class="btn" data-action="host-start">${t('lobby.start')}</button>` : ''}
-          <button class="btn" data-action="host-leave">${t('lobby.leave')}</button>
-        </div>
-        <p class="dim">${t('lobby.reconnectNote')}</p>`
-      }
+      <p class="dim">${t('lobby.idleBlurb')}</p>
+      <div class="row-gap">
+        <button class="btn btn-primary" data-action="host-local" data-autofocus>${t('lobby.local')}</button>
+      </div>
+      <p class="dim" role="note">${t('lobby.onlineNote')}</p>
+      <p class="dim" id="lobby-net-status">${escapeHtml(rooms || '')}</p>
       <div class="row-end"><button class="btn" data-action="back">${t('common.back')}</button></div>
     </div>`,
 
@@ -268,7 +251,7 @@ export const screenBuilders = {
     </div>`,
 
   // -------------------------------------------------------------------------
-  settings: ({ settings, tiers }) => {
+  settings: ({ settings, tiers, syncState }) => {
     const a = settings.accessibility;
     return `
     <div class="panel panel-wide settings-panel">
@@ -341,6 +324,7 @@ export const screenBuilders = {
           <h3>${t('settings.data')}</h3>
           <label class="check"><input type="checkbox" data-setting="consent.telemetry" ${settings.consent.telemetry ? 'checked' : ''}> ${t('settings.telemetry')}</label>
           <button class="btn btn-small" data-action="sync-cloud">${t('settings.syncCloud')}</button>
+          <p class="dim" id="cloud-sync-status" role="status">${escapeHtml(t('settings.syncStatus', { state: t(SYNC_LABEL_KEY[syncState] || 'sync.stateOffline') }))}</p>
           <button class="btn btn-small btn-danger" data-action="reset-progress">${t('settings.reset')}</button>
         </section>
       </div>
@@ -407,9 +391,10 @@ export const screenBuilders = {
   },
 
   // -------------------------------------------------------------------------
-  profile: ({ settings, progress, hosted }) => `
+  profile: ({ settings, progress, hosted, account }) => `
     <div class="panel">
       <h2>${t('profile.title')}</h2>
+      ${hosted && account ? `<p class="dim">${escapeHtml(t('profile.account', { name: account }))}</p>` : ''}
       <form data-form="profile" class="col-gap">
         <label>${t('profile.displayName')}
           <input name="displayName" maxlength="24" value="${escapeHtml(settings.displayName)}" autocomplete="off">

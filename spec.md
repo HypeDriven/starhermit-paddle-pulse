@@ -186,16 +186,16 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Packaging and launch
 - Ship a browser distribution with `starhermit.txt` at its root, `name=Paddle Pulse`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the game scope from the short-lived launch token rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Refresh account tokens through the host shell; never persist access or launch tokens in local storage.
-- Synchronize countdowns and daily boundaries with `GET /api/v1/time` using round-trip-adjusted offset. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+- Read the game scope from the short-lived launch token (fragment `#game_token`, stripped after read) rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Re-mint the launch token every 45 min via `POST /api/v1/games/{slug}/launch-token`; never persist access or launch tokens in local storage.
+- Synchronize countdowns and daily boundaries with `GET /api/v1/time` (served by the dev server) using round-trip-adjusted offset; when the route is absent on-platform, the local clock is used. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
 
 ### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name and avatar only where identity is useful, honor profile privacy, and send throttled presence heartbeats while actively playing.
+- Support guest practice locally, then offer account sign-in for durable progress. When hosted, fetch the player's nickname via `GET /api/v1/users/{userId}/profile` and show it wherever the player name appears; the local display name remains the offline name. Honor profile privacy. Presence heartbeats are a dev-server-only instrument and are never sent to the platform.
 - Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
+- Cloud-save progression to the platform slot (`GET/PUT /api/v1/me/cloud-saves/{slug}`, zip+base64) as a versioned, checksummed document, with remote preferred on load, ~2 s debounced saves, a pagehide flush, and a visible sync status; localStorage remains the offline cache. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
 
 ### Discovery, activity, and social layer
-- Start and end launch activity so playtime is accurate. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
+- Start and end launch activity so playtime is accurate; in this build activity pairing is a dev-server-only instrument and is not sent to the platform. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
 - Provide a compact friends panel for score comparison and invitations where appropriate. Respect presence visibility and do not expose a hidden or private profile through game UI.
 - Use friend invitations and the game-invite inbox for private sessions. Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls.
 - Offer voice rooms only as an explicit opt-in after joining a compatible conversation. Default muted, expose speaking/mute indicators, and provide leave/report controls. Core rules must never require voice.
@@ -206,7 +206,7 @@ No module may mutate rules state except through a validated command. Rendering c
 - Competitive outcomes, rating changes, and achievement unlocks are server-authoritative. Never accept a client-supplied winner, score, hidden state, or elapsed time as truth.
 
 ### Sessions and transport
-- Create Realtime Rooms for lobbies, invitations, quick join, AI seats where valid, seat assignment, start, backfill policy, and results. Bind the room to an authoritative scripted session for rules and achievement delivery.
+- Create Realtime Rooms for lobbies, invitations, quick join, AI seats where valid, seat assignment, start, backfill policy, and results. Bind the room to an authoritative scripted session for rules and achievement delivery. (Not implemented in this build: the hosted-play lobby ships shared-screen 2P only and labels online rooms as unavailable.)
 - Send high-frequency input/state frames over the realtime WebSocket. Use compact binary gameplay frames and JSON control frames only for lifecycle events. Configure tick rate from actual simulation needs, apply sequence numbers, input acknowledgements, interpolation, bounded prediction, and reconnect snapshots.
 - Use the opaque peer relay only for non-authoritative ephemeral data that benefits from direct fan-out, such as cursors or drawing strokes; never use relay packets as the source of truth for score, collision, roles, or inventory.
 

@@ -5,6 +5,9 @@ import { extname, join, normalize } from 'node:path';
 const ROOT = new URL('.', import.meta.url).pathname;
 const PORT = Number(process.env.PORT) || 8080;
 
+// In-memory dev stand-in for the platform cloud-save slot (keyed by game).
+const cloudSaves = new Map();
+
 const MIME = Object.freeze({
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -30,20 +33,40 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Local stand-ins for the host-shell API routes the client calls when
-    // served by this server (presence heartbeat, activity pairing,
-    // telemetry batch, cloud saves). The dev server has no backing store,
-    // so these accept and acknowledge without persisting.
+    // Local stand-ins for the platform routes the client calls when served
+    // by this server (presence heartbeat, activity pairing, telemetry
+    // batch). The dev server has no backing store, so these accept and
+    // acknowledge without persisting. The cloud-save slot below does keep an
+    // in-memory copy per game key so the client can exercise GET/PUT.
+    if (path.startsWith('/api/v1/me/cloud-saves/')) {
+      const key = decodeURIComponent(path.slice('/api/v1/me/cloud-saves/'.length));
+      if (req.method === 'PUT') {
+        let raw = '';
+        for await (const chunk of req) raw += chunk;
+        try {
+          cloudSaves.set(key, JSON.parse(raw).dataBase64 || '');
+        } catch { /* malformed body: ignore */ }
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+        res.end('{}');
+        return;
+      }
+      if (req.method === 'GET') {
+        const dataBase64 = cloudSaves.get(key);
+        if (dataBase64 == null) {
+          res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+          res.end('{"error":"no save"}');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/zip', 'cache-control': 'no-store' });
+        res.end(Buffer.from(dataBase64, 'base64'));
+        return;
+      }
+    }
     if (path.startsWith('/api/v1/')) {
       // Consume the request body before responding: replying while the
       // client is still uploading makes Chrome abort the request
       // (net::ERR_ABORTED) even though the response itself is fine.
       for await (const _ of req) { /* discard */ }
-      if (path === '/api/v1/saves' && req.method === 'GET') {
-        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-        res.end('null');
-        return;
-      }
       // Acknowledge with 200 + a JSON body, not 204: Chrome reports
       // net::ERR_ABORTED for POST fetches answered with 204 No Content.
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });

@@ -79,8 +79,19 @@ const game = {
 const app = new App({ onAction: handleAction, onBack: handleBack });
 for (const [name, build] of Object.entries(screenBuilders)) app.register(name, build);
 
-function saveSettings() { storage.saveDoc('settings', settings); }
-function saveProgress() { storage.saveDoc('progress', progress); }
+function saveSettings() { storage.saveDoc('settings', settings); queueCloudSave(); }
+function saveProgress() { storage.saveDoc('progress', progress); queueCloudSave(); }
+
+// Cloud is a mirror of the local documents; localStorage stays the offline
+// cache. Debounced inside the platform adapter (2 s) and flushed on pagehide.
+function queueCloudSave() {
+  platform.queueCloudSave({ settings: { ...settings }, progress: { ...progress } });
+}
+
+// Platform nickname when hosted; the local display name is the offline name.
+function playerName() {
+  return platform.playerName || settings.displayName;
+}
 
 function dailyNow() {
   game.daily = dailyContent(utcDateString(platform.now()));
@@ -101,6 +112,21 @@ async function boot() {
   updateHudStatic();
   app.show('boot', { pct: 30, label: t('boot.clock'), title: 'Loading' });
   await platform.init();
+  platform.onSyncStatus = () => updateSyncStatusLabel();
+  // Remote-preferred load: a cloud document wins over the local cache.
+  if (platform.hosted) {
+    const remote = await platform.loadCloud();
+    if (remote && (remote.settings || remote.progress)) {
+      if (remote.settings) Object.assign(settings, migrateSettings(remote.settings));
+      if (remote.progress) Object.assign(progress, migrateProgress(remote.progress));
+      saveSettings();
+      saveProgress();
+      applySettings();
+    }
+    platform.syncProfile().then(() => {
+      if (game.phase === 'title') app.rerender();
+    });
+  }
   app.close('boot');
   dailyNow();
 
@@ -139,7 +165,7 @@ function goTitle() {
   game.phase = 'title';
   ui.hud.hidden = true;
   app.closeAll();
-  app.show('title', { progress, daily: dailyNow(), name: settings.displayName, title: 'Paddle Pulse' });
+  app.show('title', { progress, daily: dailyNow(), name: playerName(), title: 'Paddle Pulse' });
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +283,7 @@ function resumeMatch() {
 
 function buildSeats(kind, aiLevel, names) {
   return [
-    { kind: 'human', name: names?.[0] || settings.displayName },
+    { kind: 'human', name: names?.[0] || playerName() },
     kind === 'ai'
       ? { kind: 'ai', level: aiLevel ?? 2, name: AI_LEVELS[aiLevel ?? 2].name }
       : { kind: 'human', name: names?.[1] || t('match.player2') },
@@ -453,7 +479,7 @@ function recordProgress(m, ctx, won, terminal) {
         seed: ctx.seed, rulesetVersion: DAILY_RULESET_VERSION,
       };
       const entry = {
-        name: settings.displayName,
+        name: playerName(),
         score: terminal.score[0],
         duration: Math.round(terminal.breakdown.elapsedSeconds),
         rulesetVersion: DAILY_RULESET_VERSION,
@@ -469,12 +495,12 @@ function recordProgress(m, ctx, won, terminal) {
     }
   }
   const local = progress.leaderboards.local;
-  const me = local.find((e) => e.name === settings.displayName);
+  const me = local.find((e) => e.name === playerName());
   if (me) {
     me.score = progress.totals.wins;
     me.duration = Math.min(me.duration, Math.round(terminal.breakdown.elapsedSeconds));
   } else {
-    local.push({ name: settings.displayName, score: progress.totals.wins, duration: Math.round(terminal.breakdown.elapsedSeconds) });
+    local.push({ name: playerName(), score: progress.totals.wins, duration: Math.round(terminal.breakdown.elapsedSeconds) });
   }
   local.sort((a, b) => b.score - a.score || a.duration - b.duration);
   progress.leaderboards.local = local.slice(0, 20);
@@ -822,7 +848,7 @@ function handleAction(action, params) {
     case 'open-modes': openModes(); break;
     case 'open-journey': app.show('journey', { progress, title: 'Journey' }); break;
     case 'open-daily': app.show('daily', { daily, progress, countdownText: fmtTime(msUntilNextDaily(platform.now()) / 1000), title: 'Daily Pulse' }); break;
-    case 'open-profile': app.show('profile', { settings, progress, hosted: platform.hosted, title: 'Profile' }); break;
+    case 'open-profile': app.show('profile', { settings, progress, hosted: platform.hosted, account: platform.playerName, title: 'Profile' }); break;
     case 'open-achievements': app.show('achievements', { progress, title: 'Achievements' }); break;
     case 'open-boards':
       app.show('boards', {
@@ -832,7 +858,7 @@ function handleAction(action, params) {
         title: 'Leaderboards',
       });
       break;
-    case 'open-settings': app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], title: 'Settings' }); break;
+    case 'open-settings': app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], syncState: platform.syncState, title: 'Settings' }); break;
     case 'open-help': app.show('help', { settings, title: 'Help' }); break;
     case 'back': handleBack(); break;
 
@@ -853,7 +879,6 @@ function handleAction(action, params) {
         title: 'Hosted Play',
       });
       break;
-
     // ---- content picks
     case 'journey-level': {
       const level = getJourneyLevel(params.id);
@@ -957,6 +982,8 @@ function handleAction(action, params) {
     }
 
     // ---- hosted play
+    // ---- hosted play (online rooms are not available in this build; the
+    // lobby offers shared-screen 2P, which works hosted or offline)
     case 'host-local':
       startMatch({
         mode: 'hosted-local', contentId: 'local-2p',
@@ -964,18 +991,10 @@ function handleAction(action, params) {
         brief: t('match.localBrief'),
         theme: 'neon-district', seed: ((Date.now() ^ 0x2b992) >>> 0) || 7,
         ruleset: {},
-        seats: buildSeats('human', null, [settings.displayName, t('match.player2')]),
+        seats: buildSeats('human', null, [playerName(), t('match.player2')]),
         ranked: false, allowUndo: false,
       });
       break;
-    case 'host-create':
-    case 'host-ready':
-    case 'host-start': {
-      const error = platform.hosted ? t('lobby.stubOnline') : t('lobby.stubOffline');
-      app.close('lobby');
-      app.show('lobby', { state: 'idle', error, title: 'Hosted Play' });
-      break;
-    }
     case 'host-leave': app.close('lobby'); openModes(); break;
 
     // ---- settings / profile
@@ -984,7 +1003,7 @@ function handleAction(action, params) {
       app.toast(t('toast.pressKey', { key: params.key }), { ms: 4000 });
       break;
     case 'sync-cloud':
-      platform.saveCloud({ settings, progress }).then((ok) => {
+      platform.flushCloudSave({ settings: { ...settings }, progress: { ...progress } }).then((ok) => {
         app.toast(ok ? t('toast.cloudOk') : t('toast.cloudBad'), { kind: ok ? 'success' : 'error' });
       });
       break;
@@ -1059,7 +1078,22 @@ function practiceCtx(diff) {
 function refreshSettingsScreen() {
   if (app.isOpen('settings')) {
     app.close('settings');
-    app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], title: 'Settings' });
+    app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], syncState: platform.syncState, title: 'Settings' });
+  }
+}
+
+const SYNC_LABEL_BY_STATE = {
+  offline: 'sync.stateOffline',
+  saving: 'sync.stateSaving',
+  synced: 'sync.stateSynced',
+  error: 'sync.stateError',
+};
+
+// Small cloud-sync status line (synced/saving/offline/error), updated live.
+function updateSyncStatusLabel() {
+  const el = document.getElementById('cloud-sync-status');
+  if (el) {
+    el.textContent = t('settings.syncStatus', { state: t(SYNC_LABEL_BY_STATE[platform.syncState] || 'sync.stateOffline') });
   }
 }
 
@@ -1123,13 +1157,6 @@ document.addEventListener('submit', (e) => {
     saveSettings();
     app.toast(t('toast.profileSaved'), { kind: 'success' });
     app.close('profile');
-  } else if (form.dataset.form === 'join') {
-    app.close('lobby');
-    app.show('lobby', {
-      state: 'idle',
-      error: t('lobby.stubOffline'),
-      title: 'Hosted Play',
-    });
   }
 });
 
