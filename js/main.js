@@ -367,7 +367,10 @@ function updateHudSub() {
     ui.sub.textContent = step ? step.text : t('lesson.headline');
   } else {
     const m = game.match;
-    ui.sub.textContent = game.ctx?.brief || t('hud.subFmt', { target: m.state.ruleset.targetScore, margin: m.state.ruleset.winMargin });
+    let sub = game.ctx?.brief || t('hud.subFmt', { target: m.state.ruleset.targetScore, margin: m.state.ruleset.winMargin });
+    // First plays get a one-line movement/serve hint until the move lesson is done.
+    if (!settings.tutorialDone || !settings.tutorialDone['t-move']) sub += ' · Drag or use ← → to move · Space / tap serves';
+    ui.sub.textContent = sub;
   }
 }
 
@@ -726,7 +729,10 @@ ui.canvas.addEventListener('pointermove', (e) => {
   game.pointerX = renderer.screenToArenaX(e.clientX);
 });
 ui.canvas.addEventListener('pointerup', (e) => {
-  if (game.phase === 'active' && game.match?.state.phase === PHASE.SERVE && game.match.state.server === 0) {
+  // A canvas tap serves only when serving is part of the current lesson (or
+  // in normal play): movement-only lessons keep taps for steering.
+  const lessonAllowsServe = !game.lesson || game.lesson.def.steps.some((st) => st.require?.type === 'serve');
+  if (lessonAllowsServe && game.phase === 'active' && game.match?.state.phase === PHASE.SERVE && game.match.state.server === 0) {
     submitServe(0);
   }
   game.pointerX = null;

@@ -506,7 +506,10 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
     width: auto;
     padding: 8px 12px;
   }
-  .hud-sub { display: none; }
+  /* the lesson step / objective sub-line stays visible on phones; only the
+     optional metadata below it collapses */
+  .hud-sub { display: block; font-size: 0.85rem; line-height: 1.3; }
+  .hud-meta { display: none; }
   .hud-rail-right {
     left: 0; right: 0;
     bottom: 0;
