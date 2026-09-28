@@ -87,7 +87,10 @@ export function defaultSettings() {
     language: 'auto', // 'auto' detects from navigator; otherwise a LOCALES tag
     privacy: { hiddenProfile: false },
     audio: { music: 0.7, effects: 0.9, ambience: 0.5, voice: 0.8, muted: false },
-    graphics: { tier: 'auto', bloom: true, trails: true },
+    // Graphics quality (render/gfx.js): preset 'auto' | low | balanced | high |
+    // ultra, per-category overrides ('preset' = follow the preset), render
+    // scale multiplier, adaptive resolution and frame-rate readout.
+    graphics: { preset: 'auto', render_scale: 1, adaptive: true, show_fps: false, trails: true },
     camera: { view: 'broadcast' }, // 'broadcast' | 'behind'
     accessibility: {
       reducedMotion: false,
@@ -119,6 +122,13 @@ export function migrateSettings(s) {
   }
   merged.controls.keys = { ...d.controls.keys, ...((s.controls || {}).keys || {}) };
   merged.controls.gamepad = { ...d.controls.gamepad, ...((s.controls || {}).gamepad || {}) };
+  // v1 builds stored a single `tier` (auto|low|medium|high) and an unused bloom flag.
+  const oldTier = (s.graphics || {}).tier;
+  if (oldTier !== undefined) {
+    if (!(s.graphics || {}).preset) merged.graphics.preset = { low: 'low', medium: 'balanced', high: 'high' }[oldTier] || 'auto';
+    delete merged.graphics.tier;
+    delete merged.graphics.bloom;
+  }
   merged.tutorialDone = { ...(s.tutorialDone || {}) };
   merged.v = SETTINGS_VERSION;
   return merged;

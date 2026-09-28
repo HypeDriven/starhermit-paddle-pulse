@@ -9,6 +9,57 @@ import { JOURNEY_LEVELS, CHALLENGES, AI_LEVELS, PRACTICE_DIFFICULTIES } from '..
 import { LESSONS } from '../content/tutorials.js';
 import { ACHIEVEMENTS } from '../content/achievements.js';
 import { THEMES } from '../content/themes.js';
+import { PRESETS, CATEGORIES, presetTier, resolve } from '../render/gfx.js';
+
+const ACRONYM_TIERS = new Set(['fxaa', 'smaa', 'msaa']);
+const tierLabel = (tier) => (ACRONYM_TIERS.has(tier) ? tier.toUpperCase() : t('gfx.tier.' + tier));
+
+// Graphics section of Settings. Rendered on its own so a change can refresh
+// it in place (labels such as "From preset (…)" and the cost summary follow
+// the chosen preset) without rebuilding the whole panel.
+export function graphicsSection(settings, gfx) {
+  const g = settings.graphics;
+  const detected = gfx?.detected || 'balanced';
+  const r = resolve(g, detected);
+  const scale = Math.round((Number(g.render_scale) || 1) * 100);
+  const summary = gfx ? `${escapeHtml(gfx.gpu)} · ${escapeHtml(gfx.summary)}` : '';
+  return `
+          <h3 id="set-graphics">${t('settings.graphics')}</h3>
+          <div class="gfx-grid">
+          <label class="select-row">${t('settings.quality')}
+            <select id="gfx-preset" data-gfx="preset">
+              <option value="auto" ${!PRESETS.includes(g.preset) ? 'selected' : ''}>${t('gfx.auto', { tier: t('gfx.preset.' + detected) })}</option>
+              ${PRESETS.map((p) => `<option value="${p}" ${g.preset === p ? 'selected' : ''}>${t('gfx.preset.' + p)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="slider-row">${t('gfx.renderScale')}
+            <input type="range" id="gfx-scale" min="0.5" max="2" step="0.05" value="${scale / 100}" data-gfx-range="render_scale">
+            <span class="slider-val">${scale}%</span>
+          </label>
+          ${Object.entries(CATEGORIES)
+            .map(
+              ([cat, tiers]) => `
+          <label class="select-row">${t('gfx.cat.' + cat)}
+            <select id="gfx-${cat}" data-gfx="${cat}">
+              <option value="preset" ${!tiers.includes(g[cat]) ? 'selected' : ''}>${t('gfx.fromPreset', { tier: tierLabel(presetTier(r.preset, cat)) })}</option>
+              ${tiers.map((tier) => `<option value="${tier}" ${g[cat] === tier ? 'selected' : ''}>${tierLabel(tier)}</option>`).join('')}
+            </select>
+          </label>`
+            )
+            .join('')}
+          <label class="check"><input type="checkbox" id="gfx-adaptive" data-gfx="adaptive" ${g.adaptive !== false ? 'checked' : ''}> ${t('gfx.adaptive')}</label>
+          <label class="check"><input type="checkbox" id="gfx-fps" data-gfx="show_fps" ${g.show_fps ? 'checked' : ''}> ${t('gfx.showFps')}</label>
+          <label class="check"><input type="checkbox" id="gfx-trails" data-setting="graphics.trails" ${g.trails ? 'checked' : ''}> ${t('settings.trails')}</label>
+          <label class="select-row">${t('settings.camera')}
+            <select data-setting="camera.view">
+              <option value="broadcast" ${settings.camera.view === 'broadcast' ? 'selected' : ''}>${t('settings.camBroadcast')}</option>
+              <option value="behind" ${settings.camera.view === 'behind' ? 'selected' : ''}>${t('settings.camBehind')}</option>
+            </select>
+          </label>
+          </div>
+          <p class="dim gfx-summary" id="gfx-summary" data-gfx-preset="${r.preset}" role="status">${summary}</p>
+          ${gfx?.postFailed ? `<p class="dim gfx-note" id="gfx-post-note">${t('gfx.postUnavailable')}</p>` : ''}`;
+}
 
 const stars = (n) =>
   `<span class="stars" aria-label="${n} of 3 stars">${[1, 2, 3].map((i) => `<span class="star ${i <= n ? 'on' : ''}" aria-hidden="true">★</span>`).join('')}</span>`;
@@ -251,7 +302,7 @@ export const screenBuilders = {
     </div>`,
 
   // -------------------------------------------------------------------------
-  settings: ({ settings, tiers, syncState }) => {
+  settings: ({ settings, gfx, syncState }) => {
     const a = settings.accessibility;
     return `
     <div class="panel panel-wide settings-panel">
@@ -280,20 +331,7 @@ export const screenBuilders = {
           <label class="check"><input type="checkbox" data-setting="audio.muted" ${settings.audio.muted ? 'checked' : ''}> ${t('settings.muteAll')}</label>
           <label class="check"><input type="checkbox" data-setting="accessibility.captions" ${a.captions ? 'checked' : ''}> ${t('settings.captions')}</label>
         </section>
-        <section aria-labelledby="set-graphics">
-          <h3 id="set-graphics">${t('settings.graphics')}</h3>
-          <label class="select-row">${t('settings.quality')}
-            <select data-setting="graphics.tier">
-              ${tiers.map((tier) => `<option value="${tier}" ${settings.graphics.tier === tier ? 'selected' : ''}>${tier}</option>`).join('')}
-            </select>
-          </label>
-          <label class="check"><input type="checkbox" data-setting="graphics.trails" ${settings.graphics.trails ? 'checked' : ''}> ${t('settings.trails')}</label>
-          <label class="select-row">${t('settings.camera')}
-            <select data-setting="camera.view">
-              <option value="broadcast" ${settings.camera.view === 'broadcast' ? 'selected' : ''}>${t('settings.camBroadcast')}</option>
-              <option value="behind" ${settings.camera.view === 'behind' ? 'selected' : ''}>${t('settings.camBehind')}</option>
-            </select>
-          </label>
+        <section aria-labelledby="set-graphics" id="gfx-section" class="gfx-section">${graphicsSection(settings, gfx)}
         </section>
         <section aria-labelledby="set-a11y">
           <h3 id="set-a11y">${t('settings.a11y')}</h3>

@@ -2,7 +2,8 @@
  * Paddle Pulse — end-to-end playthrough (dev only, not shipped).
  *
  * Drives the real visible UI in headless Chrome via playwright-core:
- *   title → settings open/close → journey grid → stage 1 setup → countdown →
+ *   title → settings open/close → Graphics (Auto=Low, Ultra, High, bloom
+ *   override, reload persistence, back to Auto) → journey grid → stage 1 setup → countdown →
  *   active play (real Serve-button clicks + ArrowLeft/ArrowRight movement)
  *   → pause/resume → full match to the results screen → verify replay →
  *   continue. Runs twice: desktop 1280x800 and mobile 390x844 (touch).
@@ -132,7 +133,7 @@ async function runPass(vpName, contextOpts) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`[${vpName}] pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) {
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) {
       errors.push(`[${vpName}] console: ${m.text()}`);
     }
   });
@@ -154,6 +155,47 @@ async function runPass(vpName, contextOpts) {
       if (!applied) throw new Error('reduced-motion setting did not apply to <body>');
       await page.click('[data-setting="accessibility.reducedMotion"]'); // restore
       await page.screenshot({ path: SHOT('settings', vpName) });
+      await page.click('[data-screen="settings"] [data-action="back"]');
+      await page.waitForSelector('[data-screen="settings"]', { state: 'detached', timeout: 5000 });
+    });
+
+    await step(`[${vpName}] settings → Graphics: presets, override, persistence`, async () => {
+      const preset = () => page.evaluate(() => document.body.dataset.gfxPreset);
+      const openGfx = async () => {
+        await page.click('[data-action="open-settings"]');
+        await page.waitForSelector('[data-screen="settings"] #gfx-preset', { timeout: 5000 });
+        await page.locator('#gfx-section').scrollIntoViewIfNeeded();
+      };
+      await openGfx();
+      // Headless software GPU → Auto resolves to Low.
+      if ((await preset()) !== 'low') throw new Error(`auto preset on software GPU: ${await preset()}`);
+      const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+      if (!/Low/.test(autoLabel || '')) throw new Error(`auto label: ${autoLabel}`);
+      await page.selectOption('#gfx-preset', 'ultra');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'ultra', null, { timeout: 10000 });
+      await page.waitForTimeout(1200); // a few Ultra frames (full post chain) must not log anything
+      await page.selectOption('#gfx-preset', 'high');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high', null, { timeout: 10000 });
+      const shadowLabel = await page.locator('#gfx-shadows option[value="preset"]').textContent();
+      if (!/Medium/.test(shadowLabel || '')) throw new Error(`"From preset" label did not follow High: ${shadowLabel}`);
+      await page.selectOption('#gfx-bloom', 'off');
+      await page.waitForFunction(() => {
+        const t = document.getElementById('gfx-summary')?.textContent || '';
+        return /floor reflections/.test(t) && !/bloom/.test(t);
+      }, null, { timeout: 10000 });
+      await page.screenshot({ path: SHOT('graphics', vpName) });
+      await page.click('[data-screen="settings"] [data-action="back"]');
+
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForSelector('[data-screen="title"]', { timeout: 15000 });
+      if ((await preset()) !== 'high') throw new Error(`preset after reload: ${await preset()}`);
+      await openGfx();
+      if ((await page.inputValue('#gfx-preset')) !== 'high') throw new Error('preset select did not persist');
+      if ((await page.inputValue('#gfx-bloom')) !== 'off') throw new Error('bloom override did not persist');
+      // Choosing a preset clears overrides; back to Auto keeps the match fast.
+      await page.selectOption('#gfx-preset', 'auto');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'low', null, { timeout: 10000 });
+      if ((await page.inputValue('#gfx-bloom')) !== 'preset') throw new Error('preset change did not clear the bloom override');
       await page.click('[data-screen="settings"] [data-action="back"]');
       await page.waitForSelector('[data-screen="settings"]', { state: 'detached', timeout: 5000 });
     });

@@ -5,7 +5,7 @@
 // this file never mutates rules state except through LocalMatch.submit.
 
 import { App, fmtTime } from './ui/app.js';
-import { screenBuilders } from './ui/screens.js';
+import { screenBuilders, graphicsSection } from './ui/screens.js';
 import { t, setLocale, currentLocale, detectLocale } from './ui/i18n.js';
 import {
   TICK_RATE, PHASE, CMD, verifyReplay,
@@ -23,7 +23,8 @@ import { getLesson, stepSatisfied } from './content/tutorials.js';
 import { dailyContent, utcDateString, msUntilNextDaily, DAILY_RULESET_VERSION } from './content/daily.js';
 import { getAchievement } from './content/achievements.js';
 import { getTheme } from './content/themes.js';
-import { ArenaRenderer, QUALITY_TIERS } from './render/scene.js';
+import { ArenaRenderer } from './render/scene.js';
+import { withPreset, CATEGORIES } from './render/gfx.js';
 import { AudioEngine } from './audio/audio.js';
 import { platform } from './platform/host.js?v=production-qa-1';
 
@@ -53,6 +54,7 @@ const ui = {
 
 const audio = new AudioEngine({ onCaption: (txt) => app.caption(txt), seed: 1 });
 let renderer = null;
+let lastGfxJson = '';
 
 const game = {
   phase: 'boot', // boot | title | setup | countdown | active | paused | results
@@ -137,7 +139,7 @@ async function boot() {
     return;
   }
   renderer = new ArenaRenderer(ui.canvas, {
-    tier: settings.graphics.tier === 'auto' ? 'medium' : settings.graphics.tier,
+    gfx: settings.graphics,
     reducedMotion: effectiveReducedMotion(),
     trails: settings.graphics.trails,
     onContextLost: (lost) => {
@@ -145,6 +147,7 @@ async function boot() {
     },
   });
   window.addEventListener('resize', () => renderer.resize());
+  lastGfxJson = JSON.stringify(settings.graphics);
 
   const snap = storage.loadDoc('snapshot');
   if (snap?.data?.json) {
@@ -165,6 +168,7 @@ function goTitle() {
   game.phase = 'title';
   ui.hud.hidden = true;
   app.closeAll();
+  renderer?.showAttract();
   app.show('title', { progress, daily: dailyNow(), name: playerName(), title: 'Paddle Pulse' });
 }
 
@@ -192,7 +196,13 @@ function applySettings() {
   platform.consented = !!settings.consent.telemetry;
   if (renderer) {
     renderer.setReducedMotion(effectiveReducedMotion());
-    if (settings.graphics.tier !== 'auto') renderer.setQuality(settings.graphics.tier);
+    renderer.setTrails(settings.graphics.trails);
+    // Only real graphics changes touch the renderer (audio sliders etc. do not).
+    const json = JSON.stringify(settings.graphics);
+    if (json !== lastGfxJson) {
+      lastGfxJson = json;
+      renderer.setGraphics(settings.graphics);
+    }
   }
   applyLocale();
 }
@@ -669,6 +679,8 @@ function frame(now) {
     const alpha = game.phase === 'active' ? Math.min(1, game.acc / DT) : 1;
     renderer.update(game.match.interpolation(alpha), dtReal);
     if (game.match.finished && game.phase === 'active') endMatch();
+  } else {
+    renderer.idle(dtReal); // menu backdrop (no-op unless the attract arena is up)
   }
   renderer.render(dtReal);
 }
@@ -864,7 +876,7 @@ function handleAction(action, params) {
         title: 'Leaderboards',
       });
       break;
-    case 'open-settings': app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], syncState: platform.syncState, title: 'Settings' }); break;
+    case 'open-settings': app.show('settings', { settings, gfx: renderer?.graphicsInfo(t), syncState: platform.syncState, title: 'Settings' }); break;
     case 'open-help': app.show('help', { settings, title: 'Help' }); break;
     case 'back': handleBack(); break;
 
@@ -1084,8 +1096,27 @@ function practiceCtx(diff) {
 function refreshSettingsScreen() {
   if (app.isOpen('settings')) {
     app.close('settings');
-    app.show('settings', { settings, tiers: ['auto', ...Object.keys(QUALITY_TIERS)], syncState: platform.syncState, title: 'Settings' });
+    app.show('settings', { settings, gfx: renderer?.graphicsInfo(t), syncState: platform.syncState, title: 'Settings' });
   }
+}
+
+// Save + apply a Graphics change, then refresh the Graphics section in place
+// (preset labels, cost summary) keeping keyboard focus on the same control.
+function commitGraphics(focusId) {
+  saveSettings();
+  applySettings();
+  platform.telemetry('settings-change', { key: 'graphics' });
+  refreshGraphicsSection(focusId);
+  // Pixel size and post-chain state settle on the next frames.
+  setTimeout(() => refreshGraphicsSection(null), 250);
+}
+
+function refreshGraphicsSection(focusId) {
+  const sec = document.getElementById('gfx-section');
+  if (!sec || !renderer) return;
+  const active = focusId || (sec.contains(document.activeElement) ? document.activeElement.id : null);
+  sec.innerHTML = graphicsSection(settings, renderer.graphicsInfo(t));
+  if (active) document.getElementById(active)?.focus();
 }
 
 const SYNC_LABEL_BY_STATE = {
@@ -1119,7 +1150,16 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('change', (e) => {
   const el = e.target;
-  if (el.dataset.setting != null) {
+  if (el.dataset.gfx != null) {
+    const key = el.dataset.gfx;
+    if (key === 'preset') settings.graphics = withPreset(settings.graphics, el.value);
+    else if (el.type === 'checkbox') settings.graphics[key] = el.checked;
+    else if (key in CATEGORIES && el.value === 'preset') delete settings.graphics[key];
+    else settings.graphics[key] = el.value;
+    commitGraphics(el.id);
+  } else if (el.dataset.gfxRange != null) {
+    commitGraphics(el.id);
+  } else if (el.dataset.setting != null) {
     const path = el.dataset.setting;
     const value = el.type === 'checkbox' ? el.checked : el.value;
     setPath(settings, path, value);
@@ -1137,7 +1177,14 @@ document.addEventListener('change', (e) => {
 });
 document.addEventListener('input', (e) => {
   const el = e.target;
-  if (el.dataset.settingRange != null) {
+  if (el.dataset.gfxRange != null) {
+    // Live preview while dragging; the section refreshes on release (change).
+    settings.graphics[el.dataset.gfxRange] = Number(el.value);
+    const label = el.closest('.slider-row')?.querySelector('.slider-val');
+    if (label) label.textContent = Math.round(Number(el.value) * 100) + '%';
+    saveSettings();
+    applySettings();
+  } else if (el.dataset.settingRange != null) {
     setPath(settings, el.dataset.settingRange, Number(el.value));
     saveSettings();
     applySettings();
