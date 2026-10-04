@@ -574,3 +574,6 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
   .gfx-section .select-row { flex-wrap: wrap; gap: 4px 10px; }
   .gfx-section .select-row select { width: 100%; max-width: none; }
 }
+
+/* StarHermit avatar on the profile card */
+.avatar { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; object-fit: cover; }

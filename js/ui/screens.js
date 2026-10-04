@@ -73,7 +73,7 @@ const SYNC_LABEL_KEY = {
 
 export const screenBuilders = {
   // -------------------------------------------------------------------------
-  title: ({ progress, daily, name }) => {
+  title: ({ progress, daily, name, account = {} }) => {
     const cleared = Object.values(progress.journey).filter((j) => j.stars > 0).length;
     const totalStars = Object.values(progress.journey).reduce((a, j) => a + (j.stars || 0), 0);
     const dailyDone = progress.dailies[daily.date];
@@ -104,6 +104,8 @@ export const screenBuilders = {
         <button class="btn" data-action="open-boards">${t('nav.boards')}</button>
         <button class="btn" data-action="open-settings">${t('nav.settings')}</button>
         <button class="btn" data-action="open-help">${t('nav.help')}</button>
+        ${account.signIn ? `<button class="btn" data-action="sign-in">${t('profile.signIn')}</button>` : ''}
+        ${account.invite ? `<button class="btn" data-action="invite">${t('account.invite')}</button>` : ''}
       </nav>
     </div>`;
   },
@@ -360,7 +362,6 @@ export const screenBuilders = {
           </ul>
           <p class="dim">${t('settings.gamepadNote')}</p>
           <h3>${t('settings.data')}</h3>
-          <label class="check"><input type="checkbox" data-setting="consent.telemetry" ${settings.consent.telemetry ? 'checked' : ''}> ${t('settings.telemetry')}</label>
           <button class="btn btn-small" data-action="sync-cloud">${t('settings.syncCloud')}</button>
           <p class="dim" id="cloud-sync-status" role="status">${escapeHtml(t('settings.syncStatus', { state: t(SYNC_LABEL_KEY[syncState] || 'sync.stateOffline') }))}</p>
           <button class="btn btn-small btn-danger" data-action="reset-progress">${t('settings.reset')}</button>
@@ -429,17 +430,19 @@ export const screenBuilders = {
   },
 
   // -------------------------------------------------------------------------
-  profile: ({ settings, progress, hosted, account }) => `
+  profile: ({ settings, progress, hosted, account, avatar, signIn, invite }) => `
     <div class="panel">
       <h2>${t('profile.title')}</h2>
-      ${hosted && account ? `<p class="dim">${escapeHtml(t('profile.account', { name: account }))}</p>` : ''}
+      ${hosted && account ? `<p class="dim">${avatar ? `<img class="avatar" src="${escapeHtml(avatar)}" alt="" width="24" height="24"> ` : ''}${escapeHtml(t('profile.account', { name: account }))}</p>` : ''}
       <form data-form="profile" class="col-gap">
         <label>${t('profile.displayName')}
           <input name="displayName" maxlength="24" value="${escapeHtml(settings.displayName)}" autocomplete="off">
         </label>
         <button class="btn btn-primary" type="submit" data-autofocus>${t('profile.save')}</button>
       </form>
-      ${hosted ? `<button class="btn" data-action="sign-in">${t('profile.signIn')}</button>` : `<p class="dim">${t('profile.guest')}</p>`}
+      ${signIn ? `<button class="btn" data-action="sign-in">${t('profile.signIn')}</button>` : ''}
+      ${invite ? `<button class="btn" data-action="invite">${t('account.invite')}</button>` : ''}
+      ${hosted ? '' : `<p class="dim">${t('profile.guest')}</p>`}
       <label class="check"><input type="checkbox" data-setting="privacy.hiddenProfile" ${settings.privacy.hiddenProfile ? 'checked' : ''}> ${t('profile.hidden')}</label>
       <h3>${t('profile.career')}</h3>
       <dl class="rules-summary">

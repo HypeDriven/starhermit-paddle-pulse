@@ -72,7 +72,21 @@ const game = {
   daily: null,
   resumeSnapshot: null,
   lastInvalidToast: 0,
+  bindings: null, // { action: [KeyboardEvent.code] } — local remaps + StarHermit rebinds
 };
+
+// Keyboard actions, mirrored as control.* lines in starhermit.txt. The solo
+// keys come from settings.controls.keys (the Settings remap list); the
+// shared-screen second player keys are fixed defaults. On StarHermit the
+// player's platform bindings win.
+const P2_KEYS = { p2Left: ['KeyA'], p2Right: ['KeyD'], p2Serve: ['KeyW'] };
+function localBindings() {
+  const out = {};
+  for (const [a, code] of Object.entries(settings.controls.keys)) out[a] = [code];
+  return { ...out, ...JSON.parse(JSON.stringify(P2_KEYS)) };
+}
+function keyIs(action, code) { return !!game.bindings?.[action]?.includes(code); }
+function heldAny(action) { return (game.bindings?.[action] || []).some((c) => game.keysHeld.has(c)); }
 
 // ---------------------------------------------------------------------------
 // App shell
@@ -81,7 +95,50 @@ const game = {
 const app = new App({ onAction: handleAction, onBack: handleBack });
 for (const [name, build] of Object.entries(screenBuilders)) app.register(name, build);
 
-function saveSettings() { storage.saveDoc('settings', settings); queueCloudSave(); }
+function saveSettings() { storage.saveDoc('settings', settings); queueCloudSave(); pushPlatformSettings(); }
+
+// Player preferences mirrored to the StarHermit settings KV (the account
+// value wins at boot). Key bindings live in the platform controls store.
+const KV_KEYS = ['language', 'audio', 'graphics', 'camera', 'accessibility', 'solo', 'privacy'];
+let kvSig = null;
+function kvSnapshot() {
+  const o = {};
+  for (const k of KV_KEYS) o[k] = settings[k] ?? null;
+  return o;
+}
+function pushPlatformSettings() {
+  if (!platform.hosted) return;
+  const o = kvSnapshot();
+  const sig = JSON.stringify(o);
+  if (sig === kvSig) return;
+  kvSig = sig;
+  platform.patchSettings(o);
+}
+async function loadPlatformSettings() {
+  const kv = await platform.getSettings();
+  if (!kv) return false;
+  let changed = false;
+  for (const k of KV_KEYS) {
+    if (kv[k] === undefined || kv[k] === null) continue;
+    settings[k] = (typeof kv[k] === 'object' && !Array.isArray(kv[k]) && typeof settings[k] === 'object')
+      ? { ...settings[k], ...kv[k] } : kv[k];
+    changed = true;
+  }
+  kvSig = JSON.stringify(kvSnapshot());
+  if (changed) { storage.saveDoc('settings', settings); queueCloudSave(); }
+  return changed;
+}
+
+async function copyInvite() {
+  const link = platform.inviteLink();
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    app.toast(t('toast.inviteCopied'), { kind: 'success' });
+  } catch {
+    app.toast(t('toast.inviteFailed'), { kind: 'error' });
+  }
+}
 function saveProgress() { storage.saveDoc('progress', progress); queueCloudSave(); }
 
 // Cloud is a mirror of the local documents; localStorage stays the offline
@@ -115,6 +172,11 @@ async function boot() {
   app.show('boot', { pct: 30, label: t('boot.clock'), title: 'Loading' });
   await platform.init();
   platform.onSyncStatus = () => updateSyncStatusLabel();
+  platform.onAuth = (a) => {
+    if (!a.signedIn) app.toast(t('toast.signedOut'), { kind: 'info' });
+    if (game.phase === 'title' && app.stack.every((n) => n === 'title')) goTitle();
+  };
+  game.bindings = localBindings();
   // Remote-preferred load: a cloud document wins over the local cache.
   if (platform.hosted) {
     const remote = await platform.loadCloud();
@@ -125,8 +187,15 @@ async function boot() {
       saveProgress();
       applySettings();
     }
+    if (await loadPlatformSettings()) applySettings();
+    // Platform key bindings win; the remap list shows the first code of each.
+    game.bindings = await platform.loadBindings(localBindings());
+    for (const a of Object.keys(settings.controls.keys)) {
+      if (game.bindings[a]?.length) settings.controls.keys[a] = game.bindings[a][0];
+    }
     platform.syncProfile().then(() => {
-      if (game.phase === 'title') app.rerender();
+      // the title card shows the nickname: rebuild it with fresh params
+      if (game.phase === 'title' && app.stack.every((n) => n === 'title')) goTitle();
     });
   }
   app.close('boot');
@@ -160,8 +229,13 @@ async function boot() {
   }
 
   goTitle();
-  platform.startPresence();
   requestAnimationFrame(frame);
+}
+
+// StarHermit account buttons: sign-in only where the platform offers it
+// (on *.starhermit.com without a token), invite only when signed in.
+function accountState() {
+  return { signIn: platform.canSignIn(), invite: !!platform.inviteLink() };
 }
 
 function goTitle() {
@@ -169,7 +243,7 @@ function goTitle() {
   ui.hud.hidden = true;
   app.closeAll();
   renderer?.showAttract();
-  app.show('title', { progress, daily: dailyNow(), name: playerName(), title: 'Paddle Pulse' });
+  app.show('title', { progress, daily: dailyNow(), name: playerName(), account: accountState(), title: 'Paddle Pulse' });
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +267,6 @@ function applySettings() {
   audio.setVolumes(settings.audio);
   audio.setMuted(settings.audio.muted);
   audio.setCaptions(a.captions);
-  platform.consented = !!settings.consent.telemetry;
   if (renderer) {
     renderer.setReducedMotion(effectiveReducedMotion());
     renderer.setTrails(settings.graphics.trails);
@@ -347,8 +420,6 @@ function startMatch(ctx = game.ctx) {
   updateHudSub();
   updateHud();
   app.announce(t('announce.matchStart', { title: ctx.title, objective: ui.objective.textContent }));
-  platform.activityStart();
-  platform.telemetry('start', { mode: ctx.mode });
 
   game.phase = 'countdown';
   runCountdown(() => { game.phase = 'active'; });
@@ -440,8 +511,6 @@ function showResults(m, ctx) {
   saveProgress();
   audio.stopMusic();
   audio.stopAll();
-  platform.activityEnd();
-  platform.telemetry('round-end', { mode: ctx.mode, won });
 
   app.show('results', {
     title: 'Results',
@@ -601,7 +670,6 @@ function lessonEvent(evt) {
   if (!step) return;
   if (stepSatisfied(step, evt)) {
     l.stepIndex++;
-    platform.telemetry('tutorial-step', { id: l.def.id, step: l.stepIndex });
     const next = l.def.steps[l.stepIndex];
     if (next) {
       app.toast(next.text, { kind: 'success', ms: 3400 });
@@ -695,10 +763,9 @@ function pollInputs(dt) {
   if (game.pointerX != null) {
     submitMove(0, Math.max(-half, Math.min(half, game.pointerX)));
   } else if (game.keysHeld.size) {
-    const k = settings.controls.keys;
     let dir = 0;
-    if (game.keysHeld.has(k.left)) dir -= 1;
-    if (game.keysHeld.has(k.right)) dir += 1;
+    if (heldAny('left')) dir -= 1;
+    if (heldAny('right')) dir += 1;
     if (settings.accessibility.leftHanded) dir = -dir;
     if (dir !== 0) {
       game.keyTarget = Math.max(-half, Math.min(half, game.keyTarget + dir * speed * dt));
@@ -758,6 +825,8 @@ document.addEventListener('keydown', (e) => {
   if (remapKey) {
     e.preventDefault();
     settings.controls.keys[remapKey] = e.code;
+    game.bindings = { ...game.bindings, [remapKey]: [e.code] };
+    platform.setControl(remapKey, [e.code]); // persists the rebind on StarHermit
     remapKey = null;
     saveSettings();
     app.toast(t('toast.keyUpdated'));
@@ -766,21 +835,20 @@ document.addEventListener('keydown', (e) => {
   }
   if (game.phase !== 'active') return;
   if (e.target.matches('input, select, textarea')) return;
-  const k = settings.controls.keys;
-  if (e.code === k.left || e.code === k.right) {
+  if (keyIs('left', e.code) || keyIs('right', e.code)) {
     game.keysHeld.add(e.code);
     e.preventDefault();
-  } else if (e.code === k.serve) {
+  } else if (keyIs('serve', e.code)) {
     submitServe(0);
     e.preventDefault();
-  } else if (e.code === k.pause && !app.stack.length) {
+  } else if (keyIs('pause', e.code) && !app.stack.length) {
     openPause();
     e.preventDefault();
-  } else if (e.code === k.undo) {
+  } else if (keyIs('undo', e.code)) {
     doUndo();
-  } else if (e.code === k.camera) {
+  } else if (keyIs('camera', e.code)) {
     toggleCamera();
-  } else if (e.code === k.hint) {
+  } else if (keyIs('hint', e.code)) {
     showHint();
   }
 });
@@ -866,7 +934,7 @@ function handleAction(action, params) {
     case 'open-modes': openModes(); break;
     case 'open-journey': app.show('journey', { progress, title: 'Journey' }); break;
     case 'open-daily': app.show('daily', { daily, progress, countdownText: fmtTime(msUntilNextDaily(platform.now()) / 1000), title: 'Daily Pulse' }); break;
-    case 'open-profile': app.show('profile', { settings, progress, hosted: platform.hosted, account: platform.playerName, title: 'Profile' }); break;
+    case 'open-profile': app.show('profile', { settings, progress, hosted: platform.hosted, account: platform.playerName, avatar: platform.avatarUrl, ...accountState(), title: 'Profile' }); break;
     case 'open-achievements': app.show('achievements', { progress, title: 'Achievements' }); break;
     case 'open-boards':
       app.show('boards', {
@@ -964,7 +1032,6 @@ function handleAction(action, params) {
       game.match = null;
       game.lesson = null;
       audio.stopAll();
-      platform.activityEnd();
       openModes();
       break;
     }
@@ -987,7 +1054,6 @@ function handleAction(action, params) {
     }
     case 'results-retry':
       app.close('results');
-      platform.telemetry('retry', { mode: game.ctx?.mode });
       if (game.ctx?.lesson) handleAction('lesson', { id: game.ctx.lesson.id });
       else startMatch();
       break;
@@ -1034,9 +1100,8 @@ function handleAction(action, params) {
         app.close('settings');
       }
       break;
-    case 'sign-in':
-      app.toast(platform.requestSignIn() ? t('toast.signInRequested') : t('toast.signInUnavailable'), { kind: 'info' });
-      break;
+    case 'sign-in': platform.signIn(); break;
+    case 'invite': copyInvite(); break;
     case 'replay-tutorials': break; // informational checkbox (disabled)
 
     // ---- snapshot resume
@@ -1105,7 +1170,6 @@ function refreshSettingsScreen() {
 function commitGraphics(focusId) {
   saveSettings();
   applySettings();
-  platform.telemetry('settings-change', { key: 'graphics' });
   refreshGraphicsSection(focusId);
   // Pixel size and post-chain state settle on the next frames.
   setTimeout(() => refreshGraphicsSection(null), 250);
@@ -1139,9 +1203,9 @@ document.addEventListener('keydown', (e) => {
   if (game.phase !== 'active' || game.ctx?.mode !== 'hosted-local' || !game.match) return;
   const m = game.match;
   const half = m.state.ruleset.arena.w / 2 - m.state.paddles[1].halfW;
-  if (e.code === 'KeyA') m.submit({ id: nextCmdId(1), player: 1, type: CMD.MOVE, x: Math.max(-half, m.state.paddles[1].tx - 2) });
-  else if (e.code === 'KeyD') m.submit({ id: nextCmdId(1), player: 1, type: CMD.MOVE, x: Math.min(half, m.state.paddles[1].tx + 2) });
-  else if (e.code === 'KeyW') m.submit({ id: nextCmdId(1), player: 1, type: CMD.SERVE });
+  if (keyIs('p2Left', e.code)) m.submit({ id: nextCmdId(1), player: 1, type: CMD.MOVE, x: Math.max(-half, m.state.paddles[1].tx - 2) });
+  else if (keyIs('p2Right', e.code)) m.submit({ id: nextCmdId(1), player: 1, type: CMD.MOVE, x: Math.min(half, m.state.paddles[1].tx + 2) });
+  else if (keyIs('p2Serve', e.code)) m.submit({ id: nextCmdId(1), player: 1, type: CMD.SERVE });
 });
 
 // ---------------------------------------------------------------------------
@@ -1165,7 +1229,6 @@ document.addEventListener('change', (e) => {
     setPath(settings, path, value);
     saveSettings();
     applySettings();
-    platform.telemetry('settings-change', { key: path });
     if (path.startsWith('controls.')) refreshSettingsScreen();
   } else if (el.dataset.audio != null) {
     settings.audio[el.dataset.audio] = Number(el.value);

@@ -13,7 +13,8 @@
  * for synchronization/timing — never to mutate game state.
  *
  * Serves the repo with its own dev static server (server.js, spawned on an
- * ephemeral port) so the platform API stubs (/api/v1/*) behave as in dev.
+ * ephemeral port). A standalone load must make zero same-origin /api or /ws
+ * requests.
  * Fails loudly on any non-benign console error / pageerror.
  *
  * Run: npm run test:e2e
@@ -54,7 +55,7 @@ server.stderr.on('data', (d) => { serverErr += d; });
 async function waitServerUp() {
   for (let i = 0; i < 60; i++) {
     try {
-      const res = await fetch(BASE + '/api/v1/time');
+      const res = await fetch(BASE + '/');
       if (res.ok) return;
     } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 150));
@@ -132,6 +133,10 @@ async function runPass(vpName, contextOpts) {
   const context = await browser.newContext(contextOpts);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`[${vpName}] pageerror: ${e.message}`));
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.origin === BASE && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`[${vpName}] own-server request: ${r.method()} ${u.pathname}`);
+  });
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) {
       errors.push(`[${vpName}] console: ${m.text()}`);

@@ -108,7 +108,6 @@ export function defaultSettings() {
       gamepad: { moveAxis: 0, serve: 0, pause: 9, altLeft: 14, altRight: 15 },
     },
     tutorialDone: {},
-    consent: { telemetry: false },
     solo: { difficulty: 'steady' },
   };
 }
@@ -117,7 +116,7 @@ export function migrateSettings(s) {
   const d = defaultSettings();
   if (!s || typeof s !== 'object') return d;
   const merged = { ...d, ...s };
-  for (const k of ['audio', 'graphics', 'camera', 'accessibility', 'controls', 'privacy', 'consent', 'solo']) {
+  for (const k of ['audio', 'graphics', 'camera', 'accessibility', 'controls', 'privacy', 'solo']) {
     merged[k] = { ...d[k], ...(s[k] || {}) };
   }
   merged.controls.keys = { ...d.controls.keys, ...((s.controls || {}).keys || {}) };

@@ -20,6 +20,10 @@ export const LOCALE_NAMES = {
 };
 
 const enUS = {
+  'account.invite': 'Invite a friend',
+  'toast.inviteCopied': 'Invite link copied to the clipboard.',
+  'toast.inviteFailed': 'Could not copy the invite link.',
+  'toast.signedOut': 'Signed out — playing locally.',
   'title.tagline': 'A neon kinetic arena. Return the ball. Own the angle.',
   'title.play': 'Play',
   'title.daily': 'Daily Pulse',
@@ -163,7 +167,6 @@ const enUS = {
   'settings.controls': 'Controls',
   'settings.gamepadNote': 'Gamepad: left stick moves, A serves, Start pauses. Pointer/touch: drag to move, tap to serve.',
   'settings.data': 'Data',
-  'settings.telemetry': 'Share anonymous usage events',
   'settings.syncCloud': 'Sync cloud save',
   'settings.syncStatus': 'Cloud sync: {state}',
   'sync.stateOffline': 'offline (local only)',
@@ -250,8 +253,6 @@ const enUS = {
   'toast.cloudBad': 'Cloud save unavailable — local progress is safe.',
   'toast.resetDone': 'Progress reset.',
   'toast.profileSaved': 'Profile saved.',
-  'toast.signInRequested': 'Sign-in requested from the host shell.',
-  'toast.signInUnavailable': 'Sign-in is offered by the host shell when available.',
   'toast.camera': 'Camera: {view}',
   'toast.yourServe': 'Your serve — press Space or tap the ball.',
   'toast.oppServe': 'Opponent serves. Get ready.',
@@ -307,6 +308,10 @@ const enUS = {
 };
 
 const es419 = {
+  'account.invite': 'Invitar a un amigo',
+  'toast.inviteCopied': 'Enlace de invitación copiado al portapapeles.',
+  'toast.inviteFailed': 'No se pudo copiar el enlace de invitación.',
+  'toast.signedOut': 'Sesión cerrada: juegas en modo local.',
   'title.tagline': 'Una arena cinética de neón. Devuelve la pelota. Domina el ángulo.',
   'title.play': 'Jugar',
   'title.daily': 'Pulso diario',
@@ -450,7 +455,6 @@ const es419 = {
   'settings.controls': 'Controles',
   'settings.gamepadNote': 'Mando: stick izquierdo para moverte, A para sacar, Start para pausar. Puntero/táctil: arrastra para moverte, toca para sacar.',
   'settings.data': 'Datos',
-  'settings.telemetry': 'Compartir eventos de uso anónimos',
   'settings.syncCloud': 'Sincronizar guardado en la nube',
   'settings.syncStatus': 'Sincronización en la nube: {state}',
   'sync.stateOffline': 'sin conexión (solo local)',
@@ -537,8 +541,6 @@ const es419 = {
   'toast.cloudBad': 'Guardado en la nube no disponible: el progreso local está a salvo.',
   'toast.resetDone': 'Progreso restablecido.',
   'toast.profileSaved': 'Perfil guardado.',
-  'toast.signInRequested': 'Inicio de sesión solicitado al shell del anfitrión.',
-  'toast.signInUnavailable': 'El inicio de sesión lo ofrece el shell del anfitrión cuando está disponible.',
   'toast.camera': 'Cámara: {view}',
   'toast.yourServe': 'Tu saque: pulsa Espacio o toca la pelota.',
   'toast.oppServe': 'El oponente saca. Prepárate.',
@@ -595,6 +597,8 @@ const es419 = {
 
 const esES = {
   ...es419,
+  'toast.inviteFailed': 'No se ha podido copiar el enlace de invitación.',
+  'toast.signedOut': 'Sesión cerrada: juegas en local.',
   'modes.practiceSub': 'Dificultad seleccionable, reinicio y deshacer. Sin impacto en la clasificación.',
   'help.fairBody': 'Cada partido tiene semilla y repetición. La misma semilla más las mismas entradas siempre producen el mismo resultado: comprueba cualquier resultado con «Verificar repetición».',
   'settings.trails': 'Estelas de la pelota',
@@ -602,6 +606,10 @@ const esES = {
 };
 
 const deDE = {
+  'account.invite': 'Freund einladen',
+  'toast.inviteCopied': 'Einladungslink in die Zwischenablage kopiert.',
+  'toast.inviteFailed': 'Einladungslink konnte nicht kopiert werden.',
+  'toast.signedOut': 'Abgemeldet – du spielst lokal weiter.',
   'title.tagline': 'Eine kinetische Neon-Arena. Spiele den Ball zurück. Beherrsche den Winkel.',
   'title.play': 'Spielen',
   'title.daily': 'Täglicher Puls',
@@ -745,7 +753,6 @@ const deDE = {
   'settings.controls': 'Steuerung',
   'settings.gamepadNote': 'Gamepad: linker Stick bewegt, A dient zum Aufschlagen, Start pausiert. Zeiger/Touch: ziehen zum Bewegen, tippen zum Aufschlagen.',
   'settings.data': 'Daten',
-  'settings.telemetry': 'Anonyme Nutzungsereignisse teilen',
   'settings.syncCloud': 'Cloud-Speicher synchronisieren',
   'settings.syncStatus': 'Cloud-Sync: {state}',
   'sync.stateOffline': 'offline (nur lokal)',
@@ -832,8 +839,6 @@ const deDE = {
   'toast.cloudBad': 'Cloud-Speicher nicht verfügbar — lokaler Fortschritt ist sicher.',
   'toast.resetDone': 'Fortschritt zurückgesetzt.',
   'toast.profileSaved': 'Profil gespeichert.',
-  'toast.signInRequested': 'Anmeldung bei der Host-Shell angefragt.',
-  'toast.signInUnavailable': 'Die Anmeldung wird von der Host-Shell angeboten, wenn verfügbar.',
   'toast.camera': 'Kamera: {view}',
   'toast.yourServe': 'Dein Aufschlag — Leertaste drücken oder Ball antippen.',
   'toast.oppServe': 'Der Gegner schlägt auf. Sei bereit.',
@@ -889,6 +894,10 @@ const deDE = {
 };
 
 const frFR = {
+  'account.invite': 'Inviter un ami',
+  'toast.inviteCopied': 'Lien d’invitation copié dans le presse-papiers.',
+  'toast.inviteFailed': 'Impossible de copier le lien d’invitation.',
+  'toast.signedOut': 'Déconnecté — vous jouez en local.',
   'title.tagline': 'Une arène cinétique néon. Renvoie la balle. Maîtrise l’angle.',
   'title.play': 'Jouer',
   'title.daily': 'Pulsation quotidienne',
@@ -1032,7 +1041,6 @@ const frFR = {
   'settings.controls': 'Contrôles',
   'settings.gamepadNote': 'Manette : stick gauche pour bouger, A pour servir, Start pour mettre en pause. Pointeur/tactile : glisser pour bouger, toucher pour servir.',
   'settings.data': 'Données',
-  'settings.telemetry': 'Partager des événements d’usage anonymes',
   'settings.syncCloud': 'Synchroniser la sauvegarde cloud',
   'settings.syncStatus': 'Synchro cloud : {state}',
   'sync.stateOffline': 'hors ligne (local uniquement)',
@@ -1119,8 +1127,6 @@ const frFR = {
   'toast.cloudBad': 'Sauvegarde cloud indisponible — la progression locale est en sécurité.',
   'toast.resetDone': 'Progression réinitialisée.',
   'toast.profileSaved': 'Profil enregistré.',
-  'toast.signInRequested': 'Connexion demandée au shell hôte.',
-  'toast.signInUnavailable': 'La connexion est proposée par le shell hôte quand il est disponible.',
   'toast.camera': 'Caméra : {view}',
   'toast.yourServe': 'Ton service — appuie sur Espace ou touche la balle.',
   'toast.oppServe': 'L’adversaire sert. Sois prêt.',
@@ -1184,6 +1190,10 @@ const frCA = {
 };
 
 const ptBR = {
+  'account.invite': 'Convidar um amigo',
+  'toast.inviteCopied': 'Link de convite copiado para a área de transferência.',
+  'toast.inviteFailed': 'Não foi possível copiar o link de convite.',
+  'toast.signedOut': 'Sessão encerrada — jogando localmente.',
   'title.tagline': 'Uma arena cinética de neon. Devolva a bola. Domine o ângulo.',
   'title.play': 'Jogar',
   'title.daily': 'Pulso diário',
@@ -1327,7 +1337,6 @@ const ptBR = {
   'settings.controls': 'Controles',
   'settings.gamepadNote': 'Controle: analógico esquerdo move, A saca, Start pausa. Ponteiro/toque: arraste para mover, toque para sacar.',
   'settings.data': 'Dados',
-  'settings.telemetry': 'Compartilhar eventos de uso anônimos',
   'settings.syncCloud': 'Sincronizar salvamento na nuvem',
   'settings.syncStatus': 'Sincronização na nuvem: {state}',
   'sync.stateOffline': 'off-line (somente local)',
@@ -1414,8 +1423,6 @@ const ptBR = {
   'toast.cloudBad': 'Salvamento na nuvem indisponível — o progresso local está seguro.',
   'toast.resetDone': 'Progresso redefinido.',
   'toast.profileSaved': 'Perfil salvo.',
-  'toast.signInRequested': 'Acesso solicitado à shell do hospedeiro.',
-  'toast.signInUnavailable': 'O acesso é oferecido pela shell do hospedeiro quando disponível.',
   'toast.camera': 'Câmera: {view}',
   'toast.yourServe': 'Seu saque — pressione Espaço ou toque na bola.',
   'toast.oppServe': 'O oponente saca. Prepare-se.',
@@ -1471,6 +1478,10 @@ const ptBR = {
 };
 
 const itIT = {
+  'account.invite': 'Invita un amico',
+  'toast.inviteCopied': 'Link di invito copiato negli appunti.',
+  'toast.inviteFailed': 'Impossibile copiare il link di invito.',
+  'toast.signedOut': 'Disconnesso: giochi in locale.',
   'title.tagline': 'Un’arena cinetica al neon. Rispondi al colpo. Padroneggia l’angolo.',
   'title.play': 'Gioca',
   'title.daily': 'Pulsazione giornaliera',
@@ -1614,7 +1625,6 @@ const itIT = {
   'settings.controls': 'Controlli',
   'settings.gamepadNote': 'Gamepad: stick sinistro per muoverti, A per servire, Start per la pausa. Puntatore/touch: trascina per muoverti, tocca per servire.',
   'settings.data': 'Dati',
-  'settings.telemetry': 'Condividi eventi di utilizzo anonimi',
   'settings.syncCloud': 'Sincronizza salvataggio cloud',
   'settings.syncStatus': 'Sincronizzazione cloud: {state}',
   'sync.stateOffline': 'offline (solo locale)',
@@ -1701,8 +1711,6 @@ const itIT = {
   'toast.cloudBad': 'Salvataggio cloud non disponibile — i progressi locali sono al sicuro.',
   'toast.resetDone': 'Progressi reimpostati.',
   'toast.profileSaved': 'Profilo salvato.',
-  'toast.signInRequested': 'Accesso richiesto alla shell host.',
-  'toast.signInUnavailable': 'L’accesso è offerto dalla shell host quando disponibile.',
   'toast.camera': 'Camera: {view}',
   'toast.yourServe': 'Il tuo servizio — premi Spazio o tocca la palla.',
   'toast.oppServe': 'L’avversario serve. Preparati.',
