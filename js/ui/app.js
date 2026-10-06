@@ -59,7 +59,10 @@ export class App {
     document.body.classList.add('has-screen');
     queueMicrotask(() => {
       const target = el.querySelector('[data-autofocus]') || el.querySelector('button, [href], input, select, [tabindex]');
-      target?.focus();
+      // preventScroll + reset: a low autofocus target must not scroll the
+      // heading away; every screen opens at its top.
+      target?.focus({ preventScroll: true });
+      for (const n of [el, ...el.querySelectorAll('*')]) if (n.scrollTop) n.scrollTop = 0;
     });
     return el;
   }

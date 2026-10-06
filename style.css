@@ -551,6 +551,10 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
   .hud-rail-right .btn { min-height: 44px; min-width: 44px; padding: 6px 14px; }
   .panel { max-height: 100%; padding: 14px 18px; }
   .screen { padding: 8px; }
+  /* title fits a phone in landscape: no scrolling to reach Settings/Help */
+  .logo { font-size: 2.2rem; }
+  .tagline { margin-bottom: 8px; }
+  .title-main, .title-secondary { margin-bottom: 10px; }
 }
 
 /* Graphics settings (render/gfx.js) */
