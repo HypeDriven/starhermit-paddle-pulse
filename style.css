@@ -104,7 +104,7 @@ code, kbd {
 }
 .hud-rail-left {
   left: 16px;
-  width: min(240px, 22vw);
+  width: min(240px, calc(22vw / var(--ui-scale, 1)));
   padding: 12px 14px;
   background: var(--bg-panel);
   border: 1px solid var(--line);
@@ -113,7 +113,7 @@ code, kbd {
 .hud-rail-right {
   right: 16px;
   align-items: stretch;
-  width: min(180px, 20vw);
+  width: min(180px, calc(20vw / var(--ui-scale, 1)));
 }
 .hud-objective { margin: 0; font-weight: 600; }
 .hud-sub { margin: 0; font-size: 0.85rem; color: var(--ink-dim); }
@@ -123,7 +123,7 @@ code, kbd {
   top: 38%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: clamp(3rem, 12vw, 7rem);
+  font-size: clamp(3rem, calc(12vw / var(--ui-scale, 1)), 7rem);
   font-weight: 800;
   color: var(--cyan);
   text-shadow: 0 0 32px rgba(39, 230, 255, 0.8);
@@ -151,6 +151,8 @@ body.left-handed .hud-rail-right { right: auto; left: 16px; }
   animation: screen-in 160ms ease-out;
 }
 @keyframes screen-in { from { opacity: 0; } to { opacity: 1; } }
+/* a screen opened over another (setup over title, settings over pause) hides the one below */
+.screen ~ .screen { background: rgba(3, 5, 12, 0.9); }
 
 .panel {
   width: min(680px, 100%);
@@ -171,7 +173,7 @@ body.left-handed .hud-rail-right { right: auto; left: 16px; }
 .title-wrap { text-align: center; max-width: 70ch; }
 .logo {
   margin: 0 0 6px;
-  font-size: clamp(2.4rem, 8vw, 4.6rem);
+  font-size: clamp(2.4rem, calc(8vw / var(--ui-scale, 1)), 4.6rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #fff;
@@ -380,7 +382,7 @@ select, input[type="text"], input:not([type]) {
 /* Boot */
 .boot-wrap { text-align: center; }
 .boot-bar {
-  width: min(320px, 70vw);
+  width: min(320px, calc(70vw / var(--ui-scale, 1)));
   height: 8px;
   margin: 18px auto;
   background: rgba(147, 164, 196, 0.2);
@@ -403,7 +405,7 @@ select, input[type="text"], input:not([type]) {
   z-index: 30;
 }
 .toast {
-  max-width: min(480px, 90vw);
+  max-width: min(480px, calc(90vw / var(--ui-scale, 1)));
   padding: 10px 18px;
   background: var(--bg-panel);
   border: 1px solid var(--line);
@@ -482,7 +484,7 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
     bottom: calc(76px + env(safe-area-inset-bottom));
     left: 12px;
     transform: none;
-    width: min(300px, 60vw);
+    width: min(300px, calc(60vw / var(--ui-scale, 1)));
   }
   .hud-rail-right {
     top: auto;
@@ -527,6 +529,8 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
   }
   .card-grid { grid-template-columns: 1fr 1fr; }
+  /* captions sit under the score pill so they never cover the objective rail */
+  #captions { bottom: auto; top: calc(56px + env(safe-area-inset-top)); }
   .settings-cols { grid-template-columns: 1fr; }
 }
 
@@ -577,3 +581,8 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 
 /* StarHermit avatar on the profile card */
 .avatar { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; object-fit: cover; }
+
+/* Large screens: ui-scale.js sets --ui-scale (1 up to 1600x1000). The HUD,
+   screens, toasts, captions and fps meter zoom by it (vw lengths above are
+   divided by it); the full-viewport 3D canvas stays unzoomed. */
+.hud, #screens, #toasts, #captions, #fps-meter { zoom: var(--ui-scale, 1); }
