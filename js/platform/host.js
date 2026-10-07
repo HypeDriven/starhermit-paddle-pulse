@@ -124,6 +124,18 @@ export class Platform {
     if (!this.hosted) return false;
     try { await sdk().setControl(action, codes); return true; } catch { return false; }
   }
+  /** Post a finished match to a leaderboard (score-script.js) → { posted, rank }. Offline: no call. */
+  async submitScore(key, value) {
+    if (!this.hosted) return { posted: false, rank: null };
+    const s = sdk();
+    const keys = await s.submitScores({ [key]: value }).catch(() => []);
+    if (keys.indexOf(key) < 0) return { posted: false, rank: null };
+    try {
+      const r = await s.leaderboard(key, { pageSize: 100 });
+      const me = (r.items || []).find((i) => i.userId === s.userId);
+      return { posted: true, rank: me ? me.rank : null };
+    } catch { return { posted: true, rank: null }; }
+  }
   canSignIn() { const s = sdk(); return !!(s && s.canSignIn()); }
   signIn() { const s = sdk(); return !!(s && s.signIn()); }
   inviteLink() { return this.hosted ? sdk().inviteLink() : null; }

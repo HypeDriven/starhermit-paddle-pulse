@@ -96,5 +96,6 @@ test('standalone (no token): no request at all', async () => {
   assert.deepEqual(await P.loadBindings({ hint: ['KeyH'] }), { hint: ['KeyH'] });
   assert.equal(P.inviteLink(), null);
   assert.equal(P.canSignIn(), false);
+  assert.deepEqual(await P.submitScore('longest-rally', 12), { posted: false, rank: null });
   assert.equal(srv.calls.length, 0);
 });

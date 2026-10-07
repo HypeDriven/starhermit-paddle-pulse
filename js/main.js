@@ -524,11 +524,27 @@ function showResults(m, ctx) {
     canVerify: true,
     won,
   });
+  postToLeaderboard(ctx, bd);
   app.announce(t('announce.result', {
     headline: won ? t('results.victory') : t('results.defeat'),
     a: bd.goals[0],
     b: bd.goals[1],
   }), true);
+}
+
+// Signed in: Journey, Daily and Challenge matches post their longest rally to
+// the platform board and the results show the rank. Practice, lessons, local
+// two-player and standalone play post nothing.
+function postToLeaderboard(ctx, bd) {
+  if (!platform.hosted || !['journey', 'daily', 'challenge'].includes(ctx.mode)) return;
+  const line = document.getElementById('results-lb');
+  if (!line) return;
+  line.hidden = false;
+  line.textContent = t('results.lbPosting');
+  platform.submitScore('longest-rally', bd.longestRally | 0).then((r) => {
+    line.textContent = !r.posted ? t('results.lbNotPosted')
+      : r.rank ? t('results.lbRank', { rank: r.rank }) : t('results.lbPosted');
+  });
 }
 
 function countMasteryCleared() {

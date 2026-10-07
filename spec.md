@@ -171,7 +171,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror. Localization ships the eight platform locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) in a keyed string dictionary; the browser language is detected by default and any locale can be forced from Settings, re-rendering open screens in place.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform` (`js/platform/host.js`): adapter over the shared StarHermit SDK (`starhermit-sdk.js`) — token, profile, cloud save, settings KV, controls, sign-in/invite. It never calls the game's own server routes (`/api`, `/ws`); the device clock is authoritative.
+- `platform` (`js/platform/host.js`): adapter over the shared StarHermit SDK (`starhermit-sdk.js`) — token, profile, cloud save, settings KV, controls, sign-in/invite, leaderboard posting (`submitScore`). It never calls the game's own server routes (`/api`, `/ws`); the device clock is authoritative.
 
 No module may mutate rules state except through a validated command. Rendering consumes immutable snapshots plus interpolation data. UI state and simulation state are separate so closing a drawer cannot affect a match.
 
@@ -193,7 +193,7 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- The distribution ships `starhermit.txt` at its root (`name`, `description`, `launch=index.html`, `owner`, `server=server.js`, `version`, `cover`, and one `control.<action>=<codes> | <label>` line per keyboard action) and `starhermit-sdk.js`, an unmodified copy of the canonical StarHermit client loaded by `index.html` before `js/main.js`.
+- The distribution ships `starhermit.txt` at its root (`name`, `description`, `launch=index.html`, `owner`, `server=score-script.js`, `version`, `cover`, and one `control.<action>=<codes> | <label>` line per keyboard action) and `starhermit-sdk.js`, an unmodified copy of the canonical StarHermit client loaded by `index.html` before `js/main.js`.
 - All platform traffic goes through the SDK; `js/platform/host.js` adapts it. `StarHermit.init()` reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return) once and strips it; the slug is the `game_scope` claim. Without a token no platform request is made.
 - The SDK renews the launch token before expiry. If renewal is refused the player becomes a guest again (toast "signed out — playing locally"), sign-in is re-offered and play continues on localStorage.
 - The client makes no own-server requests (no time sync, presence, activity or telemetry); the device clock sets the daily boundary. Without a launch token the game makes no network request beyond its static files.
@@ -208,7 +208,9 @@ No module may mutate rules state except through a validated command. Rendering c
 - All new strings are in `js/ui/i18n.js` for the nine locales.
 
 ### Not used
-- Leaderboards and achievements stay local (no server script reports scores or unlocks to the platform; clients cannot submit them). Sessions, matchmaking, friends picker, session chat, replays, realtime rooms and voice are not used: the hosted-play lobby ships shared-screen 2P only and labels online rooms as unavailable.
+- **Platform script:** `score-script.js` (canonical copy in the games repo's `tools/score-script.js`) is the deployed `server=` script: a practice session that accepts `{type:'result', scores}`, range-checks each score against its board and posts it. `server.js` is the local dev server only.
+- **Leaderboard:** one board, `longest-rally` ("Longest rally": integer hits, higher is better, 0–10,000). Signed in, every finished Journey, Daily or Challenge match (won, lost or conceded) posts its longest rally through `platform.submitScore` → `StarHermit.submitScores`, and the results screen shows "Leaderboard rank: #N" (or "Score posted / not posted to the leaderboard."), localized in the nine locales (`results.lb*`). Practice, lessons, shared-screen 2P and standalone play post nothing.
+- Achievements stay local. Multiplayer sessions, matchmaking, friends picker, session chat, replays, realtime rooms and voice are not used: the hosted-play lobby ships shared-screen 2P only and labels online rooms as unavailable.
 
 ## 7. Content, economy, and retention
 

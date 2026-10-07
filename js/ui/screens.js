@@ -295,6 +295,7 @@ export const screenBuilders = {
           : ''
       }
       ${comparison ? `<p class="dim">${escapeHtml(comparison)}</p>` : ''}
+      <p id="results-lb" class="dim" aria-live="polite" hidden></p>
       <div class="row-gap">
         <button class="btn btn-primary" data-action="results-next" data-autofocus>${escapeHtml(nextLabel || t('common.cont'))}</button>
         <button class="btn" data-action="results-retry">${t('results.retry')}</button>
