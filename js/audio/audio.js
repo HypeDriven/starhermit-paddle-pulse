@@ -60,7 +60,7 @@ export class AudioEngine {
       const g = this.ctx.createGain();
       g.gain.value = this.volumes[name];
       g.connect(this.master);
-      this.buses[name] = g;
+      this.buses[name] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, name) : g);
     }
     this._noiseBuf = makeNoiseBuffer(this.ctx);
     return true;
@@ -125,7 +125,7 @@ export class AudioEngine {
     if (!name) return false;
     const rec = this._sfx.get(name);
     if (rec?.status === 'ready') {
-      const src = this.ctx.createBufferSource();
+      const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), null) : this.ctx.createBufferSource());
       src.buffer = rec.buffer;
       const g = this.ctx.createGain();
       g.gain.value = peak;
@@ -154,7 +154,7 @@ export class AudioEngine {
   _tone({ bus = 'effects', type = 'square', f0 = 440, f1 = null, a = 0.004, d = 0.09, peak = 0.5, when = 0 }) {
     if (!this.ensure()) return;
     const t0 = this.ctx.currentTime + when;
-    const o = this.ctx.createOscillator();
+    const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), bus) : this.ctx.createOscillator());
     o.type = type;
     o.frequency.setValueAtTime(f0, t0);
     if (f1 != null) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + a + d);
@@ -166,7 +166,7 @@ export class AudioEngine {
   _noise({ bus = 'effects', dur = 0.08, peak = 0.3, freq = 1200, q = 1, when = 0 }) {
     if (!this.ensure()) return;
     const t0 = this.ctx.currentTime + when;
-    const src = this.ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), bus) : this.ctx.createBufferSource());
     src.buffer = this._noiseBuf;
     src.loop = true;
     src.playbackRate.value = 0.8 + next(this.rng) * 0.4; // seeded variant
@@ -282,13 +282,13 @@ export class AudioEngine {
     const g = this.ctx.createGain();
     g.gain.value = 0.05;
     g.connect(this.buses.ambience);
-    const o1 = this.ctx.createOscillator();
+    const o1 = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), null) : this.ctx.createOscillator());
     o1.type = 'sine';
     o1.frequency.value = root / 2;
-    const o2 = this.ctx.createOscillator();
+    const o2 = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), null) : this.ctx.createOscillator());
     o2.type = 'triangle';
     o2.frequency.value = root * 1.005;
-    const lfo = this.ctx.createOscillator();
+    const lfo = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), null) : this.ctx.createOscillator());
     lfo.frequency.value = 0.07;
     const lfoG = this.ctx.createGain();
     lfoG.gain.value = 0.02;
@@ -323,7 +323,7 @@ export class AudioEngine {
     }
     const barLen = 60 / 96; // 96 bpm, one bar per beat group here
     const note = (f, t0, dur, type, gainNode, peak) => {
-      const o = this.ctx.createOscillator();
+      const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), null) : this.ctx.createOscillator());
       o.type = type;
       o.frequency.value = f;
       const g = this.ctx.createGain();
