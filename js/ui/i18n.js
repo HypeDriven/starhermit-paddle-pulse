@@ -1,9 +1,14 @@
-// Localization (spec §3/§5: the ui module owns localization). Ships the eight
-// platform locales (agents/localization.md). Locale resolution: explicit
-// setting, then navigator.languages (exact tag, then base language), falling
-// back to en-US. Numbers stay locale-independent so the HUD and automated
+// Localization (spec §3/§5: the ui module owns localization). Ships the nine
+// platform locales (agents/localization.md). The locale is chosen by
+// sh-language.js in main.js (Language setting `ui.language` → StarHermit
+// account preference → navigator.languages → en-US) and applied here with
+// setLocale(). Numbers stay locale-independent so the HUD and automated
 // playthrough read the same values in every language. Interpolation uses
-// {name} placeholders; missing keys fall back to en-US.
+// {name} placeholders; missing keys fall back to en-US. Authored content
+// (lessons, stages, challenges, achievements) is keyed by its English text
+// and translated with tc() (tables in i18n-content.js).
+
+import { EXTRA, CONTENT } from './i18n-content.js';
 
 export const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 
@@ -1894,14 +1899,14 @@ const GFX = {
     'gfx.sum.noAA': 'nessun anti-aliasing',
   },
 };
-Object.assign(enUS, GFX.en);
-Object.assign(es419, GFX.es);
-Object.assign(esES, GFX.es);
-Object.assign(deDE, GFX.de);
-Object.assign(frFR, GFX.fr);
-Object.assign(frCA, GFX.fr);
-Object.assign(ptBR, GFX.pt);
-Object.assign(itIT, GFX.it);
+Object.assign(enUS, GFX.en, EXTRA.en);
+Object.assign(es419, GFX.es, EXTRA.es);
+Object.assign(esES, GFX.es, EXTRA.es);
+Object.assign(deDE, GFX.de, EXTRA.de);
+Object.assign(frFR, GFX.fr, EXTRA.fr);
+Object.assign(frCA, GFX.fr, EXTRA.fr);
+Object.assign(ptBR, GFX.pt, EXTRA.pt);
+Object.assign(itIT, GFX.it, EXTRA.it);
 
 const STRINGS = {
   'en-US': enUS,
@@ -1949,6 +1954,17 @@ export function t(key, vars = null) {
   }
   return s;
 }
+
+// Authored content keyed by its US-English text (unknown text passes through).
+export function tc(text, vars = null) {
+  if (text == null) return '';
+  const dict = CONTENT[current] || {};
+  let s = Object.prototype.hasOwnProperty.call(dict, text) ? dict[text] : String(text);
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
+  return s;
+}
+
+export { CONTENT };
 
 // Resolved dictionaries (locale + en-US fallback) for tests and tooling.
 export function resolvedStrings(tag) {

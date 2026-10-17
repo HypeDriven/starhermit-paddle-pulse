@@ -6,13 +6,13 @@
 
 import { App, fmtTime } from './ui/app.js';
 import { screenBuilders, graphicsSection } from './ui/screens.js';
-import { t, setLocale, currentLocale, detectLocale } from './ui/i18n.js';
+import { t, tc, setLocale, currentLocale, LOCALES } from './ui/i18n.js';
 import {
   TICK_RATE, PHASE, CMD, verifyReplay,
 } from './rules/engine.js';
 import { LocalMatch, nextCmdId } from './session/match.js';
 import {
-  Storage, migrateSettings, defaultProgress, migrateProgress,
+  Storage, migrateSettings, defaultProgress, migrateProgress, mergeProgress,
   validateLeaderboardEntry,
 } from './session/storage.js';
 import {
@@ -52,7 +52,12 @@ const ui = {
   canvas: document.getElementById('arena'),
 };
 
-const audio = new AudioEngine({ onCaption: (txt) => app.caption(txt), seed: 1 });
+// Audio captions arrive as English cue ids ('[serve]'); show them in the game language.
+const CAPTION_KEYS = {
+  '[serve]': 'caption.serve', '[goal for you]': 'caption.goalFor', '[goal conceded]': 'caption.goalAgainst',
+  '[victory]': 'caption.victory', '[defeat]': 'caption.defeat', '[action not allowed]': 'caption.invalid', '[go]': 'caption.go',
+};
+const audio = new AudioEngine({ onCaption: (txt) => app.caption(CAPTION_KEYS[txt] ? `[${t(CAPTION_KEYS[txt])}]` : txt), seed: 1 });
 let renderer = null;
 let lastGfxJson = '';
 
@@ -99,7 +104,8 @@ function saveSettings() { storage.saveDoc('settings', settings); queueCloudSave(
 
 // Player preferences mirrored to the StarHermit settings KV (the account
 // value wins at boot). Key bindings live in the platform controls store.
-const KV_KEYS = ['language', 'audio', 'graphics', 'camera', 'accessibility', 'solo', 'privacy'];
+// The game language is not in this list: sh-language.js keeps it as `ui.language`.
+const KV_KEYS = ['audio', 'graphics', 'camera', 'accessibility', 'solo', 'privacy'];
 let kvSig = null;
 function kvSnapshot() {
   const o = {};
@@ -141,6 +147,23 @@ async function copyInvite() {
 }
 function saveProgress() { storage.saveDoc('progress', progress); queueCloudSave(); }
 
+// A cloud document never simply replaces this device's state: progress is
+// merged (storage.mergeProgress keeps the better result of each record) and
+// tutorial completions are unioned; the account's preferences still apply.
+function adoptRemote(remote) {
+  if (!remote || typeof remote !== 'object') return false;
+  if (remote.settings) {
+    const done = { ...(remote.settings.tutorialDone || {}), ...settings.tutorialDone };
+    Object.assign(settings, migrateSettings(remote.settings));
+    settings.tutorialDone = done;
+  }
+  if (remote.progress) Object.assign(progress, mergeProgress(migrateProgress(remote.progress), progress));
+  saveSettings();
+  saveProgress();
+  applySettings();
+  return true;
+}
+
 // Cloud is a mirror of the local documents; localStorage stays the offline
 // cache. Debounced inside the platform adapter (2 s) and flushed on pagehide.
 function queueCloudSave() {
@@ -149,7 +172,7 @@ function queueCloudSave() {
 
 // Platform nickname when hosted; the local display name is the offline name.
 function playerName() {
-  return platform.playerName || settings.displayName;
+  return platform.playerName || (settings.displayName === 'Guest' ? t('common.guest') : settings.displayName);
 }
 
 function dailyNow() {
@@ -160,6 +183,8 @@ function dailyNow() {
 function updateHudStatic() {
   ui.serve.textContent = t('hud.serve');
   ui.pause.textContent = t('hud.pause');
+  document.getElementById('stage')?.setAttribute('aria-label', t('aria.arena'));
+  ui.canvas?.setAttribute('aria-label', t('aria.canvas'));
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +192,7 @@ function updateHudStatic() {
 // ---------------------------------------------------------------------------
 
 async function boot() {
+  appReady = true;
   applySettings();
   updateHudStatic();
   app.show('boot', { pct: 30, label: t('boot.clock'), title: 'Loading' });
@@ -177,16 +203,17 @@ async function boot() {
     if (game.phase === 'title' && app.stack.every((n) => n === 'title')) goTitle();
   };
   game.bindings = localBindings();
-  // Remote-preferred load: a cloud document wins over the local cache.
+  // Another device saved first: the SDK refused our write; re-read, merge, save again.
+  platform.onSaveConflict = async () => {
+    const remote = await platform.loadCloud();
+    if (remote && (remote.settings || remote.progress)) adoptRemote(remote);
+    else queueCloudSave();
+    if (game.phase === 'title' && app.stack.every((n) => n === 'title')) goTitle();
+  };
+  // Cloud load: merged with the local cache (see adoptRemote), never adopted wholesale.
   if (platform.hosted) {
     const remote = await platform.loadCloud();
-    if (remote && (remote.settings || remote.progress)) {
-      if (remote.settings) Object.assign(settings, migrateSettings(remote.settings));
-      if (remote.progress) Object.assign(progress, migrateProgress(remote.progress));
-      saveSettings();
-      saveProgress();
-      applySettings();
-    }
+    if (remote && (remote.settings || remote.progress)) adoptRemote(remote);
     if (await loadPlatformSettings()) applySettings();
     // Platform key bindings win; the remap list shows the first code of each.
     game.bindings = await platform.loadBindings(localBindings());
@@ -243,7 +270,7 @@ function goTitle() {
   ui.hud.hidden = true;
   app.closeAll();
   renderer?.showAttract();
-  app.show('title', { progress, daily: dailyNow(), name: playerName(), account: accountState(), title: 'Paddle Pulse' });
+  app.show('title', () => ({ progress, daily: dailyNow(), name: playerName(), account: accountState(), title: 'Paddle Pulse' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -277,26 +304,69 @@ function applySettings() {
       renderer.setGraphics(settings.graphics);
     }
   }
-  applyLocale();
 }
 
-// Language: explicit setting wins; otherwise detect from the browser. On a
-// real change, re-render open screens and refresh the HUD chrome so the new
-// locale applies without leaving the current flow.
-function applyLocale() {
-  const desired = settings.language === 'auto'
-    ? detectLocale([...(navigator.languages || []), navigator.language || 'en-US'])
-    : settings.language;
-  document.documentElement.lang = desired;
-  if (desired === currentLocale()) return;
-  setLocale(desired);
+// Language (sh-language.js): the Settings → Language choice (`ui.language`),
+// for Automatic the StarHermit account's preferred language, then the
+// browser's languages, then en-US. `?lang=` forces a locale for the page load
+// (QA links) and hides the selector. A change re-renders open screens, the
+// HUD and the match texts in place; the match itself is untouched.
+function applyLocale(locale) {
+  document.documentElement.lang = locale;
+  if (locale === currentLocale()) return;
+  setLocale(locale);
+  if (!appReady) return;
+  if (game.ctx) localizeCtx(game.ctx);
   app.rerender();
+  refreshGraphicsSection(null);
   updateHudStatic();
   if (game.match) {
     ui.objective.textContent = game.ctx?.objective ||
       t('hud.objectiveDefault', { score: game.match.state.ruleset.targetScore, margin: game.match.state.ruleset.winMargin });
     updateHudSub();
   }
+}
+let appReady = false;
+let forcedLang = null;
+try { forcedLang = new URLSearchParams(location.search).get('lang'); } catch { /* opaque origin */ }
+const SHL = window.StarHermitLanguage;
+const forcedLocale = forcedLang && SHL ? SHL.match(forcedLang, LOCALES) : null;
+const gameLanguage = SHL ? SHL.create({
+  game: 'paddle-pulse', supported: LOCALES, panel: !forcedLocale,
+  apply: (locale) => applyLocale(forcedLocale || locale),
+}) : null;
+if (!gameLanguage) applyLocale('en-US');
+// One-time migration of the old in-game language setting to the shared one.
+if (gameLanguage && settings.language && settings.language !== 'auto') {
+  if (gameLanguage.choice() === 'auto') gameLanguage.setChoice(settings.language);
+  settings.language = 'auto';
+  storage.saveDoc('settings', settings);
+}
+
+// Match texts (title, brief, objective) come from content in the current
+// locale; recomputed when the language changes.
+function localizeCtx(ctx) {
+  if (!ctx) return ctx;
+  if (ctx.mode === 'journey' && ctx.ref) {
+    ctx.title = t('match.stageTitle', { n: ctx.ref.index, title: tc(ctx.ref.title) });
+    ctx.brief = ctx.objective = tc(ctx.ref.brief);
+  } else if (ctx.mode === 'challenge' && ctx.ref) {
+    ctx.title = tc(ctx.ref.title);
+    ctx.brief = ctx.objective = tc(ctx.ref.brief);
+  } else if (ctx.mode === 'learn' && ctx.lesson) {
+    ctx.title = tc(ctx.lesson.title);
+    ctx.brief = ctx.objective = tc(ctx.lesson.objective);
+  } else if (ctx.mode === 'daily' && ctx.daily) {
+    ctx.title = t('match.dailyTitle', { name: tc(ctx.daily.name) });
+    ctx.brief = t('match.dailyBrief', { date: ctx.daily.date });
+  } else if (ctx.mode === 'practice' && ctx.ref) {
+    ctx.title = t('match.practiceTitle', { name: tc(ctx.ref.name) });
+    ctx.brief = t('match.practiceBrief');
+  } else if (ctx.mode === 'hosted-local') {
+    ctx.title = t('match.localTitle');
+    ctx.brief = t('match.localBrief');
+  }
+  return ctx;
 }
 
 function setPath(obj, path, value) {
@@ -315,8 +385,10 @@ function openModes() { app.show('modes', { title: 'Modes' }); }
 function openSetup(ctx) {
   game.ctx = ctx;
   game.phase = 'setup';
-  const r = ctx.ruleset;
-  app.show('setup', {
+  app.show('setup', () => {
+    const ctx = game.ctx;
+    const r = ctx.ruleset;
+    return {
     title: ctx.title,
     brief: ctx.brief || '',
     rules: [
@@ -331,6 +403,7 @@ function openSetup(ctx) {
     seed: ctx.seed,
     assists: { timingAssist: settings.accessibility.timingAssist },
     startLabel: ctx.startLabel || t('common.start'),
+    };
   });
 }
 
@@ -338,11 +411,11 @@ function openPause() {
   if (game.phase !== 'active') return;
   game.phase = 'paused';
   saveSnapshot();
-  app.show('pause', {
+  app.show('pause', () => ({
     title: t('pause.title'),
     objective: game.ctx?.brief || game.ctx?.title || t('pause.title'),
     canUndo: !!game.match?.allowUndo && game.match.snapshots.length > 0,
-  });
+  }));
   app.announce(t('toast.paused'));
 }
 
@@ -431,7 +504,7 @@ function runCountdown(done) {
   audio.countdown(n);
   const timer = setInterval(() => {
     n--;
-    ui.countdown.textContent = n > 0 ? n : 'GO';
+    ui.countdown.textContent = n > 0 ? n : t('hud.go');
     audio.countdown(n);
     if (n < 0) {
       clearInterval(timer);
@@ -445,12 +518,12 @@ function updateHudSub() {
   if (!game.match) return;
   if (game.lesson) {
     const step = game.lesson.def.steps[game.lesson.stepIndex];
-    ui.sub.textContent = step ? step.text : t('lesson.headline');
+    ui.sub.textContent = step ? tc(step.text) : t('lesson.headline');
   } else {
     const m = game.match;
     let sub = game.ctx?.brief || t('hud.subFmt', { target: m.state.ruleset.targetScore, margin: m.state.ruleset.winMargin });
     // First plays get a one-line movement/serve hint until the move lesson is done.
-    if (!settings.tutorialDone || !settings.tutorialDone['t-move']) sub += ' · Drag or use ← → to move · Space / tap serves';
+    if (!settings.tutorialDone || !settings.tutorialDone['t-move']) sub += ' · ' + t('hud.firstHint');
     ui.sub.textContent = sub;
   }
 }
@@ -492,7 +565,7 @@ function showResults(m, ctx) {
   }
   const unlocked = awardAchievements(m, won);
 
-  const breakdown = [
+  const breakdownRows = () => [
     [t('results.finalScore'), `${bd.goals[0]} – ${bd.goals[1]}`],
     [t('setup.ruleTarget'), t('results.targetRow', { score: bd.targetScore, margin: bd.winMargin })],
     [t('results.rallies'), String(bd.rallies)],
@@ -500,30 +573,30 @@ function showResults(m, ctx) {
     [t('results.returns'), String(bd.hits[0])],
     [t('results.fastestRow'), t('results.fastest', { v: bd.fastestReturn })],
     [t('results.duration'), fmtTime(bd.elapsedSeconds)],
-    [t('results.reason'), terminal.reason],
+    [t('results.reason'), t('reason.' + terminal.reason)],
   ];
 
-  let nextLabel = t('common.cont');
-  if (ctx.mode === 'journey' && won) {
+  const nextLabel = () => {
+    if (!(ctx.mode === 'journey' && won)) return t('common.cont');
     const next = getJourneyLevel(ctx.ref.index + 1);
-    nextLabel = next ? t('results.nextStage', { title: next.title }) : t('results.journeyDone');
-  }
+    return next ? t('results.nextStage', { title: tc(next.title) }) : t('results.journeyDone');
+  };
   saveProgress();
   audio.stopMusic();
   audio.stopAll();
 
-  app.show('results', {
+  app.show('results', () => ({
     title: 'Results',
     headline: won ? t('results.victory') : terminal.reason === 'match-conceded' ? t('results.conceded') : t('results.defeat'),
     sub: t('results.sub', { title: ctx.title, a: bd.goals[0], b: bd.goals[1] }),
-    breakdown,
+    breakdown: breakdownRows(),
     starsEarned,
     unlocked,
     comparison: null,
-    nextLabel,
+    nextLabel: nextLabel(),
     canVerify: true,
     won,
-  });
+  }));
   postToLeaderboard(ctx, bd);
   app.announce(t('announce.result', {
     headline: won ? t('results.victory') : t('results.defeat'),
@@ -535,15 +608,25 @@ function showResults(m, ctx) {
 // Signed in: Journey, Daily and Challenge matches post their longest rally to
 // the platform board and the results show the rank. Practice, lessons, local
 // two-player and standalone play post nothing.
+let lbLine = null;   // results leaderboard line state, re-rendered after a rerender()
+function renderLbLine() {
+  const line = document.getElementById('results-lb');
+  if (!line || !lbLine) return;
+  const r = lbLine;
+  line.hidden = false;
+  line.textContent = r.pending ? t('results.lbPosting') : !r.posted ? t('results.lbNotPosted')
+    : r.rank ? t('results.lbRank', { rank: r.rank }) : t('results.lbPosted');
+}
 function postToLeaderboard(ctx, bd) {
+  lbLine = null;
   if (!platform.hosted || !['journey', 'daily', 'challenge'].includes(ctx.mode)) return;
   const line = document.getElementById('results-lb');
   if (!line) return;
-  line.hidden = false;
-  line.textContent = t('results.lbPosting');
+  lbLine = { pending: true };
+  renderLbLine();
   platform.submitScore('longest-rally', bd.longestRally | 0).then((r) => {
-    line.textContent = !r.posted ? t('results.lbNotPosted')
-      : r.rank ? t('results.lbRank', { rank: r.rank }) : t('results.lbPosted');
+    lbLine = r;
+    renderLbLine();
   });
 }
 
@@ -688,12 +771,12 @@ function lessonEvent(evt) {
     l.stepIndex++;
     const next = l.def.steps[l.stepIndex];
     if (next) {
-      app.toast(next.text, { kind: 'success', ms: 3400 });
-      ui.sub.textContent = next.text;
+      app.toast(tc(next.text), { kind: 'success', ms: 3400 });
+      ui.sub.textContent = tc(next.text);
     } else {
       settings.tutorialDone[l.def.id] = true;
       saveSettings();
-      app.toast(t('lesson.complete', { objective: l.def.objective }), { kind: 'success', ms: 3200 });
+      app.toast(t('lesson.complete', { objective: tc(l.def.objective) }), { kind: 'success', ms: 3200 });
       if (l.def.id !== 't-score') {
         // Lessons that don't end by winning: close out cleanly.
         game.phase = 'resolving';
@@ -701,17 +784,18 @@ function lessonEvent(evt) {
           game.phase = 'results';
           ui.hud.hidden = true;
           audio.stopAll();
-          app.show('results', {
+          lbLine = null;
+          app.show('results', () => ({
             title: t('lesson.headline'),
             headline: t('lesson.headline'),
-            sub: l.def.objective,
-            breakdown: [[t('lesson.lesson'), l.def.title], [t('lesson.steps'), String(l.def.steps.length)]],
+            sub: tc(l.def.objective),
+            breakdown: [[t('lesson.lesson'), tc(l.def.title)], [t('lesson.steps'), String(l.def.steps.length)]],
             starsEarned: null,
             unlocked: [],
             nextLabel: t('lesson.backToLearn'),
             canVerify: false,
             won: true,
-          });
+          }));
         }, 700);
       }
     }
@@ -877,7 +961,7 @@ function toggleCamera() {
   settings.camera.view = settings.camera.view === 'broadcast' ? 'behind' : 'broadcast';
   renderer?.setView(settings.camera.view);
   saveSettings();
-  app.toast(t('toast.camera', { view: settings.camera.view }));
+  app.toast(t('toast.camera', { view: t(settings.camera.view === 'behind' ? 'settings.camBehind' : 'settings.camBroadcast') }));
 }
 
 function showHint() {
@@ -885,7 +969,7 @@ function showHint() {
   if (!m) return;
   if (game.lesson) {
     const step = game.lesson.def.steps[game.lesson.stepIndex];
-    if (step) app.toast(step.hint, { ms: 3600 });
+    if (step) app.toast(tc(step.hint), { ms: 3600 });
     return;
   }
   if (m.state.phase === PHASE.SERVE) {
@@ -975,64 +1059,56 @@ function handleAction(action, params) {
     }
     case 'mode-challenge': app.show('challenges', { progress, title: 'Challenges' }); break;
     case 'mode-hosted':
-      app.show('lobby', {
+      app.show('lobby', () => ({
         state: 'idle',
         rooms: platform.hosted ? t('lobby.statusOnline') : t('lobby.statusOffline'),
         title: 'Hosted Play',
-      });
+      }));
       break;
     // ---- content picks
     case 'journey-level': {
       const level = getJourneyLevel(params.id);
       if (!level) break;
-      openSetup({
+      openSetup(localizeCtx({
         mode: 'journey', contentId: level.id, ref: level,
-        title: t('match.stageTitle', { n: level.index, title: level.title }), brief: level.brief,
         theme: level.theme, seed: level.seed, ruleset: { ...level.ruleset },
         seats: buildSeats('ai', level.ai),
         ranked: false, allowUndo: false,
-        objective: level.brief,
-      });
+      }));
       break;
     }
     case 'challenge': {
       const ch = getChallenge(params.id);
       if (!ch) break;
-      openSetup({
+      openSetup(localizeCtx({
         mode: 'challenge', contentId: ch.id, ref: ch,
-        title: ch.title, brief: ch.brief,
         theme: ch.theme, seed: ch.seed, ruleset: { ...ch.ruleset },
         seats: buildSeats('ai', ch.ai),
         ranked: false, allowUndo: false,
-        objective: ch.brief,
-      });
+      }));
       break;
     }
     case 'lesson': {
       const lesson = getLesson(params.id);
       if (!lesson) break;
-      startMatch({
+      startMatch(localizeCtx({
         mode: 'learn', contentId: lesson.id, lesson,
-        title: lesson.title, brief: lesson.objective,
         theme: 'neon-district', seed: 0x1e550 + lesson.id.length,
         ruleset: { ...lesson.ruleset },
         seats: buildSeats('ai', lesson.ai),
         aiIdle: !!lesson.aiIdle,
         ranked: false, allowUndo: true,
-        objective: lesson.objective,
-      });
+      }));
       break;
     }
     case 'play-daily':
-      startMatch({
-        mode: 'daily', contentId: daily.id,
-        title: t('match.dailyTitle', { name: daily.name }),
-        brief: t('match.dailyBrief', { date: daily.date }),
+      startMatch(localizeCtx({
+        mode: 'daily', contentId: daily.id, daily,
         theme: daily.theme, seed: daily.seed, ruleset: { ...daily.ruleset },
         seats: buildSeats('ai', daily.ai),
         ranked: !progress.dailies[daily.date],
         allowUndo: false,
-      });
+      }));
       break;
 
     // ---- match flow
@@ -1085,15 +1161,13 @@ function handleAction(action, params) {
     // ---- hosted play (online rooms are not available in this build; the
     // lobby offers shared-screen 2P, which works hosted or offline)
     case 'host-local':
-      startMatch({
+      startMatch(localizeCtx({
         mode: 'hosted-local', contentId: 'local-2p',
-        title: t('match.localTitle'),
-        brief: t('match.localBrief'),
         theme: 'neon-district', seed: ((Date.now() ^ 0x2b992) >>> 0) || 7,
         ruleset: {},
         seats: buildSeats('human', null, [playerName(), t('match.player2')]),
         ranked: false, allowUndo: false,
-      });
+      }));
       break;
     case 'host-leave': app.close('lobby'); openModes(); break;
 
@@ -1162,16 +1236,14 @@ function handleAction(action, params) {
 }
 
 function practiceCtx(diff) {
-  return {
+  return localizeCtx({
     mode: 'practice', contentId: 'practice-' + diff.id, ref: diff,
-    title: t('match.practiceTitle', { name: diff.name }),
-    brief: t('match.practiceBrief'),
     theme: 'neon-district',
     seed: (Date.now() ^ 0x9e3779b9) >>> 0,
     ruleset: { ...diff.ruleset },
     seats: buildSeats('ai', diff.ai),
     ranked: false, allowUndo: true,
-  };
+  });
 }
 
 function refreshSettingsScreen() {
@@ -1191,11 +1263,13 @@ function commitGraphics(focusId) {
   setTimeout(() => refreshGraphicsSection(null), 250);
 }
 
+// Redraws only the game's own Graphics box: the shared Frame rate / Language /
+// Sound / Report sections that game-options.js mounts in #gfx-section stay put.
 function refreshGraphicsSection(focusId) {
-  const sec = document.getElementById('gfx-section');
-  if (!sec || !renderer) return;
-  const active = focusId || (sec.contains(document.activeElement) ? document.activeElement.id : null);
-  sec.innerHTML = graphicsSection(settings, renderer.graphicsInfo(t));
+  const box = document.getElementById('gfx-box');
+  if (!box || !renderer) return;
+  const active = focusId || (box.contains(document.activeElement) ? document.activeElement.id : null);
+  box.innerHTML = graphicsSection(settings, renderer.graphicsInfo(t));
   if (active) document.getElementById(active)?.focus();
 }
 
@@ -1298,7 +1372,7 @@ goTitle = function () {
   origGoTitle();
   if (game.resumeSnapshot) {
     const ago = Math.max(1, Math.round((Date.now() - game.resumeSnapshot.savedAt) / 1000));
-    app.show('resume', { tickSeconds: fmtTime(ago) + ' (' + ago + 's)', title: 'Match in progress' });
+    app.show('resume', () => ({ tickSeconds: fmtTime(ago) + ' (' + ago + 's)', title: 'Match in progress' }));
   }
 };
 

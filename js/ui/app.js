@@ -49,7 +49,8 @@ export class App {
     el.dataset.screen = name;
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
-    el.innerHTML = build(params);
+    // params may be a function so a locale change can recompute its text (rerender()).
+    el.innerHTML = build(typeof params === 'function' ? params() : params);
     // Dialog label mirrors the visible (localized) heading.
     el.setAttribute('aria-label', el.querySelector('h1, h2')?.textContent?.trim() || params.title || name);
     this.screensRoot.appendChild(el);
@@ -88,12 +89,36 @@ export class App {
     return this.stack.includes(name);
   }
 
-  // Rebuild every open screen in place (used when the locale changes).
+  // Rebuild every open screen in place (used when the locale changes). A
+  // [data-options-graphics] host (where game-options.js mounts the shared
+  // Frame rate / Language / Sound / Report sections) is kept as the same node:
+  // only its own [data-own-box] content is replaced, so the shared sections,
+  // their focus and the scroll position survive.
   rerender() {
     for (const name of [...this.stack]) {
       const el = this.screensRoot.querySelector(`[data-screen="${name}"]`);
       const build = this.builders[name];
-      if (el && build) el.innerHTML = build(this._params.get(name) || {});
+      if (!el || !build) continue;
+      const raw = this._params.get(name) || {};
+      const tpl = document.createElement('template');
+      tpl.innerHTML = build(typeof raw === 'function' ? raw() : raw);
+      const scrolls = [el, ...el.querySelectorAll('*')].filter((n) => n.scrollTop).map((n) => [n.className, n.scrollTop]);
+      const keep = el.querySelector('[data-options-graphics]');
+      const fresh = tpl.content.querySelector('[data-options-graphics]');
+      const focused = keep && keep.contains(document.activeElement) ? document.activeElement : null;
+      if (keep && fresh) {
+        const box = keep.querySelector('[data-own-box]');
+        const nbox = fresh.querySelector('[data-own-box]');
+        if (box && nbox) box.replaceChildren(...nbox.childNodes);
+        fresh.replaceWith(keep);
+      }
+      el.replaceChildren(tpl.content);
+      el.setAttribute('aria-label', el.querySelector('h1, h2')?.textContent?.trim() || name);
+      for (const [cls, top] of scrolls) {
+        const n = cls === el.className ? el : el.querySelector(cls ? '.' + String(cls).trim().split(/\s+/).join('.') : '*');
+        if (n) n.scrollTop = top;
+      }
+      if (focused && document.contains(focused)) focused.focus({ preventScroll: true });
     }
   }
 

@@ -24,10 +24,15 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { chromium } from 'playwright-core';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SHOT = (stage, vp) => `/tmp/paddle-pulse-e2e-${stage}-${vp}.png`;
+// Language-step screenshots go to E2E_SHOT_DIR (default: the OS temp dir).
+const LANG_SHOT = (name) => join(process.env.E2E_SHOT_DIR || tmpdir(), `paddle-pulse-e2e-${name}.png`);
+let apiStubbed = false;   // only the language step stubs the StarHermit API on this origin
 
 // Benign GPU/swiftshader console noise (same regex as tools/production_game_audit.mjs).
 const browserNoise = /GL Driver Message|GPU stall due to ReadPixels|Automatic fallback to software WebGL|EnableWebGLDeveloperExtensions/i;
@@ -135,7 +140,7 @@ async function runPass(vpName, contextOpts) {
   page.on('pageerror', (e) => errors.push(`[${vpName}] pageerror: ${e.message}`));
   page.on('request', (r) => {
     const u = new URL(r.url());
-    if (u.origin === BASE && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`[${vpName}] own-server request: ${r.method()} ${u.pathname}`);
+    if (!apiStubbed && u.origin === BASE && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`[${vpName}] own-server request: ${r.method()} ${u.pathname}`);
   });
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) {
@@ -252,6 +257,75 @@ async function runPass(vpName, contextOpts) {
       await page.click('[data-action="results-next"]');
       // Win → next stage setup; loss → modes grid. Both are valid exits.
       await page.waitForSelector('[data-screen="setup"], [data-screen="modes"]', { timeout: 8000 });
+    });
+
+    await step(`[${vpName}] language: Automatic follows the StarHermit preferred language; switching mid-match re-renders in place, syncs ui.language; report a problem`, async () => {
+      apiStubbed = true;
+      const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+      await page.goto('about:blank');
+      await page.goto(`${BASE}/index.html#game_token=${launchToken()}`, { waitUntil: 'load' });
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA', null, { timeout: 10000 });
+      await page.waitForSelector('[data-screen="title"]', { timeout: 15000 });
+      if (!/Jouer/i.test(await page.textContent('[data-action="quick-play"]'))) throw new Error('title not in French');
+      await page.click('[data-action="open-journey"]');
+      await page.waitForSelector('[data-screen="journey"] h3.chapter', { timeout: 5000 });
+      if ((await page.textContent('[data-screen="journey"] h3.chapter')).trim() !== 'Allumage') throw new Error('journey content not in French');
+      await page.click('[data-action="journey-level"][data-id="j01"]');
+      await page.waitForSelector('[data-screen="setup"]', { timeout: 5000 });
+      if (!/Premier contact/.test(await page.textContent('[data-screen="setup"] h2'))) throw new Error('stage title not in French');
+      await page.click('[data-screen="setup"] [data-action="start-match"]');
+      await page.waitForSelector('#hud:not([hidden])', { timeout: 10000 });
+      await page.waitForFunction(() => document.getElementById('hud-countdown').textContent === '', null, { timeout: 15000 });
+      const seed = await page.textContent('#hud-score');
+      await page.click('#hud-pause');
+      await page.waitForSelector('[data-screen="pause"]', { timeout: 5000 });
+      await page.click('[data-screen="pause"] [data-action="open-settings"]');
+      await page.waitForSelector('[data-screen="settings"]', { timeout: 5000 });
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.scrollIntoViewIfNeeded();
+      const autoLabel = await choice.locator('option').first().textContent();
+      if (autoLabel !== 'Automatique — Français (Canada)') throw new Error('Automatic label not resolved: ' + autoLabel);
+      if (await page.locator('[data-setting="language"]').count()) throw new Error('two language selectors');
+      await choice.selectOption('de-DE');
+      await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+      await page.waitForFunction(() => /Im Konto gespeichert/.test(document.querySelector('[data-game-language="status"]').textContent));
+      if (calls.settings['ui.language']?.choice !== 'de-DE') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+      if ((await page.textContent('[data-screen="settings"] h2')).trim() !== 'Einstellungen') throw new Error('settings not re-rendered');
+      if (!/Qualität/.test(await page.textContent('#gfx-box'))) throw new Error('graphics box not re-rendered');
+      if ((await page.locator('#gfx-section [data-game-options-fps]').count()) !== 1) throw new Error('shared sections lost or duplicated');
+      await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+      await page.fill('[data-game-report="title"]', 'Test report');
+      await page.click('[data-game-report="send"]');
+      await page.waitForFunction(() => /Bericht gesendet/.test(document.querySelector('[data-game-report="status"]').textContent));
+      if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+      await page.locator('[data-screen="settings"] h2').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: LANG_SHOT('settings-' + vpName) });
+      await page.click('[data-screen="settings"] [data-action="back"]');
+      await page.waitForSelector('[data-screen="pause"]', { timeout: 5000 });
+      if (!/Lerne die Arena kennen/.test(await page.textContent('[data-screen="pause"]'))) throw new Error('pause objective not re-rendered');
+      await page.click('[data-screen="pause"] [data-action="resume"]');
+      await page.waitForFunction(() => document.getElementById('hud-countdown').textContent === '', null, { timeout: 15000 });
+      if ((await page.textContent('#hud-score')) !== seed) throw new Error('language change restarted the match');
+      if ((await page.textContent('#hud-pause')).trim() !== 'Pause' || !/Aufschlag/.test(await page.textContent('#hud-serve'))) throw new Error('HUD not re-rendered');
+      for (const id of ['hud-serve', 'hud-pause']) {
+        const ok = await page.locator('#' + id).evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return r.right <= window.innerWidth + 0.5 && r.bottom <= window.innerHeight + 0.5 && (hit === el || el.contains(hit));
+        });
+        if (!ok) throw new Error(`#${id} covered or cut off in German`);
+      }
+      await page.screenshot({ path: LANG_SHOT('hud-' + vpName) });
+      await page.click('#hud-pause');
+      await page.click('[data-screen="pause"] [data-action="open-settings"]');
+      await choice.scrollIntoViewIfNeeded();
+      await choice.selectOption('auto');
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+      await page.click('[data-screen="settings"] [data-action="back"]');
+      await page.click('[data-screen="pause"] [data-action="leave-match"]');
+      await page.waitForSelector('[data-screen="modes"]', { timeout: 5000 });
+      await page.unroute(/\/api\/v1\//);
+      apiStubbed = false;
     });
 
     // Fail fast between passes if this pass produced errors.

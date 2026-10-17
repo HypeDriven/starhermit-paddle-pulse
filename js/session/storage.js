@@ -166,6 +166,49 @@ export function migrateProgress(p) {
   return merged;
 }
 
+// Merge two progress documents (cloud vs this device): nothing either side
+// earned is dropped. Journey stars and wins, challenge clears, streak bests and
+// totals take the larger value; dailies keep the first result recorded for a
+// date (this device's when both have one); achievements keep the earliest
+// unlock and the larger progress; local and daily boards are unioned.
+export function mergeProgress(remote, local) {
+  const a = migrateProgress(JSON.parse(JSON.stringify(remote || {})));
+  const b = migrateProgress(JSON.parse(JSON.stringify(local || {})));
+  const out = defaultProgress();
+  for (const id of new Set([...Object.keys(a.journey), ...Object.keys(b.journey)])) {
+    const x = a.journey[id] || {}, y = b.journey[id] || {};
+    out.journey[id] = { ...x, ...y, stars: Math.max(x.stars || 0, y.stars || 0), wins: Math.max(x.wins || 0, y.wins || 0) };
+  }
+  for (const id of new Set([...Object.keys(a.challenges), ...Object.keys(b.challenges)])) {
+    const x = a.challenges[id], y = b.challenges[id];
+    out.challenges[id] = y?.cleared ? y : x?.cleared ? x : (y || x);
+  }
+  out.dailies = { ...a.dailies, ...b.dailies };
+  for (const key of new Set([...Object.keys(a.achievements), ...Object.keys(b.achievements)])) {
+    const x = a.achievements[key] || {}, y = b.achievements[key] || {};
+    const at = [x.at, y.at].filter(Boolean).sort()[0] || null;
+    out.achievements[key] = { at, progress: Math.max(x.progress || 0, y.progress || 0) };
+  }
+  out.streak = { current: Math.max(a.streak.current, b.streak.current), best: Math.max(a.streak.best, b.streak.best) };
+  for (const k of new Set([...Object.keys(a.totals), ...Object.keys(b.totals)])) out.totals[k] = Math.max(a.totals[k] || 0, b.totals[k] || 0);
+  const byScore = (p, q) => q.score - p.score || p.duration - q.duration;
+  const daily = {};
+  for (const date of new Set([...Object.keys(a.leaderboards.daily || {}), ...Object.keys(b.leaderboards.daily || {})])) {
+    const seen = new Set();
+    daily[date] = [...(b.leaderboards.daily[date] || []), ...(a.leaderboards.daily[date] || [])]
+      .filter((e) => { const k = `${e.name}|${e.score}|${e.duration}|${e.seed}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort(byScore).slice(0, 20);
+  }
+  const byName = new Map();
+  for (const e of [...(a.leaderboards.local || []), ...(b.leaderboards.local || [])]) {
+    const prev = byName.get(e.name);
+    byName.set(e.name, prev ? { ...e, score: Math.max(prev.score, e.score), duration: Math.min(prev.duration, e.duration) } : { ...e });
+  }
+  out.leaderboards = { daily, local: [...byName.values()].sort(byScore).slice(0, 20) };
+  out.rating = (b.rating.matches || 0) >= (a.rating.matches || 0) ? b.rating : a.rating;
+  return out;
+}
+
 // Leaderboard submission validation (spec §6): reject impossible or
 // stale-version scores; every entry carries ruleset, version, seed, assists,
 // and duration.

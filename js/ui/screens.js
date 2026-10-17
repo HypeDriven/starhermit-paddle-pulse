@@ -4,7 +4,7 @@
 // strings go through t() so screens re-render in the player's locale.
 
 import { escapeHtml, fmtTime, fmtInt } from './app.js';
-import { t, LOCALES, LOCALE_NAMES } from './i18n.js';
+import { t, tc } from './i18n.js';
 import { JOURNEY_LEVELS, CHALLENGES, AI_LEVELS, PRACTICE_DIFFICULTIES } from '../content/levels.js';
 import { LESSONS } from '../content/tutorials.js';
 import { ACHIEVEMENTS } from '../content/achievements.js';
@@ -87,7 +87,7 @@ export const screenBuilders = {
       <div class="title-secondary">
         <button class="card ${dailyDone ? 'done' : ''}" data-action="open-daily">
           <span class="card-title">${t('title.daily')}</span>
-          <span class="card-sub">${t('title.dailySub', { name: escapeHtml(daily.name), state: dailyDone ? t('title.dailyDone') : t('title.dailyNew') })}</span>
+          <span class="card-sub">${t('title.dailySub', { name: escapeHtml(tc(daily.name)), state: dailyDone ? t('title.dailyDone') : t('title.dailyNew') })}</span>
         </button>
         <button class="card" data-action="open-journey">
           <span class="card-title">${t('title.journey')}</span>
@@ -144,7 +144,7 @@ export const screenBuilders = {
       ${chapters
         .map(
           (ch) => `
-        <h3 class="chapter">${escapeHtml(ch.name)}</h3>
+        <h3 class="chapter">${escapeHtml(tc(ch.name))}</h3>
         <div class="level-grid" role="list">
           ${ch.levels
             .map((l) => {
@@ -156,7 +156,7 @@ export const screenBuilders = {
               <button class="level-node ${l.mastery ? 'mastery' : ''} ${locked ? 'locked' : ''}" role="listitem"
                 ${locked ? 'disabled aria-disabled="true"' : ''}
                 data-action="journey-level" data-id="${l.id}"
-                aria-label="${escapeHtml(t('journey.ariaStage', { n: l.index, title: l.title }) + (l.mastery ? t('journey.ariaMastery') : '') + (locked ? t('journey.ariaLocked') : ''))}">
+                aria-label="${escapeHtml(t('journey.ariaStage', { n: l.index, title: tc(l.title) }) + (l.mastery ? t('journey.ariaMastery') : '') + (locked ? t('journey.ariaLocked') : ''))}">
                 <span class="level-num">${l.index}</span>
                 ${stars(rec?.stars || 0)}
               </button>`;
@@ -178,9 +178,9 @@ export const screenBuilders = {
         ${CHALLENGES.map(
           (c) => `
         <button class="card ${progress.challenges[c.id]?.cleared ? 'done' : ''}" data-action="challenge" data-id="${c.id}">
-          <span class="card-title">${escapeHtml(c.title)} ${progress.challenges[c.id]?.cleared ? '✓' : ''}</span>
-          <span class="card-sub">${escapeHtml(c.brief)}</span>
-          <span class="chip">${escapeHtml(c.goals.constraint)}</span>
+          <span class="card-title">${escapeHtml(tc(c.title))} ${progress.challenges[c.id]?.cleared ? '✓' : ''}</span>
+          <span class="card-sub">${escapeHtml(tc(c.brief))}</span>
+          <span class="chip">${escapeHtml(t('constraint.' + c.goals.constraint))}</span>
         </button>`
         ).join('')}
       </div>
@@ -196,7 +196,7 @@ export const screenBuilders = {
         ${LESSONS.map(
           (l, i) => `
         <button class="card ${settings.tutorialDone[l.id] ? 'done' : ''}" data-action="lesson" data-id="${l.id}">
-          <span class="card-title">${i + 1}. ${escapeHtml(l.objective)} ${settings.tutorialDone[l.id] ? '✓' : ''}</span>
+          <span class="card-title">${i + 1}. ${escapeHtml(tc(l.objective))} ${settings.tutorialDone[l.id] ? '✓' : ''}</span>
           <span class="card-sub">${t(l.steps.length > 1 ? 'learn.stepMany' : 'learn.stepOne', { n: l.steps.length })}</span>
         </button>`
         ).join('')}
@@ -228,7 +228,7 @@ export const screenBuilders = {
     const done = progress.dailies[daily.date];
     return `
     <div class="panel">
-      <h2>${escapeHtml(t('daily.heading', { name: daily.name }))}</h2>
+      <h2>${escapeHtml(t('daily.heading', { name: tc(daily.name) }))}</h2>
       <p class="dim">${t('daily.blurb')}</p>
       <dl class="rules-summary">
         <div><dt>${t('daily.date')}</dt><dd>${escapeHtml(daily.date)}</dd></div>
@@ -290,7 +290,7 @@ export const screenBuilders = {
       ${
         unlocked?.length
           ? `<h3>${t('results.achievements')}</h3><ul class="unlock-list">${unlocked
-              .map((a) => `<li><span aria-hidden="true">${a.icon}</span> <strong>${escapeHtml(a.name)}</strong> — ${escapeHtml(a.desc)}</li>`)
+              .map((a) => `<li><span aria-hidden="true">${a.icon}</span> <strong>${escapeHtml(tc(a.name))}</strong> — ${escapeHtml(tc(a.desc))}</li>`)
               .join('')}</ul>`
           : ''
       }
@@ -311,15 +311,6 @@ export const screenBuilders = {
     <div class="panel panel-wide settings-panel">
       <h2>${t('settings.title')}</h2>
       <div class="settings-cols">
-        <section aria-labelledby="set-lang">
-          <h3 id="set-lang">${t('settings.language')}</h3>
-          <label class="select-row">${t('settings.language')}
-            <select data-setting="language">
-              <option value="auto" ${settings.language === 'auto' ? 'selected' : ''}>${t('settings.langAuto')}</option>
-              ${LOCALES.map((l) => `<option value="${l}" ${settings.language === l ? 'selected' : ''}>${LOCALE_NAMES[l]}</option>`).join('')}
-            </select>
-          </label>
-        </section>
         <section aria-labelledby="set-audio">
           <h3 id="set-audio">${t('settings.audio')}</h3>
           ${['music', 'effects', 'ambience', 'voice']
@@ -334,7 +325,10 @@ export const screenBuilders = {
           <label class="check"><input type="checkbox" data-setting="audio.muted" ${settings.audio.muted ? 'checked' : ''}> ${t('settings.muteAll')}</label>
           <label class="check"><input type="checkbox" data-setting="accessibility.captions" ${a.captions ? 'checked' : ''}> ${t('settings.captions')}</label>
         </section>
-        <section aria-labelledby="set-graphics" id="gfx-section" class="gfx-section">${graphicsSection(settings, gfx)}
+        <section aria-labelledby="set-graphics" id="gfx-section" class="gfx-section" data-options-graphics>
+          <div id="gfx-box" data-own-box>${graphicsSection(settings, gfx)}
+          </div>
+          <!-- game-options.js mounts the shared Frame rate / Language / Sound / Report sections here, after #gfx-box -->
         </section>
         <section aria-labelledby="set-a11y">
           <h3 id="set-a11y">${t('settings.a11y')}</h3>
@@ -342,7 +336,7 @@ export const screenBuilders = {
           <label class="check"><input type="checkbox" data-setting="accessibility.highContrast" ${a.highContrast ? 'checked' : ''}> ${t('settings.highContrast')}</label>
           <label class="select-row">${t('settings.palette')}
             <select data-setting="accessibility.palette">
-              ${['none', 'deuteranopia', 'protanopia', 'tritanopia', 'high-contrast'].map((p) => `<option value="${p}" ${a.palette === p ? 'selected' : ''}>${p}</option>`).join('')}
+              ${['none', 'deuteranopia', 'protanopia', 'tritanopia', 'high-contrast'].map((p) => `<option value="${p}" ${a.palette === p ? 'selected' : ''}>${t('palette.' + p)}</option>`).join('')}
             </select>
           </label>
           <label class="slider-row">${t('settings.textSize')}
@@ -358,7 +352,7 @@ export const screenBuilders = {
           <h3 id="set-controls">${t('settings.controls')}</h3>
           <ul class="bindings">
             ${Object.entries(settings.controls.keys)
-              .map(([k, v]) => `<li><span>${k}</span><button class="btn btn-small" data-action="remap" data-key="${k}">${escapeHtml(v)}</button></li>`)
+              .map(([k, v]) => `<li><span>${escapeHtml(t('action.' + k))}</span><button class="btn btn-small" data-action="remap" data-key="${k}">${escapeHtml(v)}</button></li>`)
               .join('')}
           </ul>
           <p class="dim">${t('settings.gamepadNote')}</p>
@@ -383,8 +377,8 @@ export const screenBuilders = {
           const done = !!rec?.at;
           return `
           <div class="card achievement ${done ? 'done' : ''}">
-            <span class="card-title"><span aria-hidden="true">${a.icon}</span> ${escapeHtml(a.name)}</span>
-            <span class="card-sub">${escapeHtml(a.desc)}</span>
+            <span class="card-title"><span aria-hidden="true">${a.icon}</span> ${escapeHtml(tc(a.name))}</span>
+            <span class="card-sub">${escapeHtml(tc(a.desc))}</span>
             ${a.progress ? `<span class="progress-bar"><span style="width:${Math.min(100, (cur / a.progress) * 100)}%"></span></span><span class="dim">${done ? t('achievements.unlocked') : t('achievements.progressFmt', { cur: fmtInt(cur), total: fmtInt(a.progress) })}</span>` : done ? `<span class="dim">${t('achievements.unlocked')}</span>` : `<span class="dim">${t('achievements.locked')}</span>`}
           </div>`;
         }).join('')}

@@ -18,6 +18,7 @@ export class Platform {
     this.syncState = 'offline'; // offline | saving | synced | error
     this.onSyncStatus = null;
     this.onAuth = null; // ({ signedIn }) after a sign-out (refused renewal)
+    this.onSaveConflict = null; // another device saved first (StarHermit `saveconflict`)
     this._cloudTimer = null;
     this._cloudDoc = null;
     this._inited = false;
@@ -35,6 +36,9 @@ export class Platform {
       this._inited = true;
       s.init();
       let was = this.hosted;
+      // A cloud write lost to a save made on another device: main.js re-reads,
+      // merges and saves again (the SDK blocks writes until the re-read).
+      s.on('saveconflict', () => { this.onSaveConflict?.(); });
       s.on('auth', (a) => {
         if (a.signedIn === was) return; // renewals change nothing visible
         was = a.signedIn;
