@@ -22,7 +22,7 @@ export function graphicsSection(settings, gfx) {
   const detected = gfx?.detected || 'balanced';
   const r = resolve(g, detected);
   const scale = Math.round((Number(g.render_scale) || 1) * 100);
-  const summary = gfx ? `${escapeHtml(gfx.gpu)} · ${escapeHtml(gfx.summary)}` : '';
+  const summary = gfx ? [gfx.gpu, gfx.level != null ? t('gfx.level', { n: gfx.level }) : null, gfx.summary].filter(Boolean).map(escapeHtml).join(' · ') : '';
   return `
           <h3 id="set-graphics">${t('settings.graphics')}</h3>
           <div class="gfx-grid">

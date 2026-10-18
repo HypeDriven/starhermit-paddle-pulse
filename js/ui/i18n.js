@@ -1811,7 +1811,7 @@ const GFX = {
     'gfx.tier.static': 'Static', 'gfx.tier.animated': 'Animated', 'gfx.tier.plain': 'Plain', 'gfx.tier.detailed': 'Detailed',
     'gfx.sum.noShadows': 'no shadows', 'gfx.sum.shadows': '{n}² shadows', 'gfx.sum.ao': 'ambient occlusion',
     'gfx.sum.aoFull': 'full ambient occlusion', 'gfx.sum.bloom': 'bloom', 'gfx.sum.reflections': 'floor reflections',
-    'gfx.sum.noAA': 'no anti-aliasing',
+    'gfx.sum.noAA': 'no anti-aliasing', 'gfx.level': 'Level {n}',
   },
   es: {
     'gfx.auto': 'Automático (detectado: {tier})',
@@ -1828,7 +1828,7 @@ const GFX = {
     'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado', 'gfx.tier.plain': 'Sencillo', 'gfx.tier.detailed': 'Detallado',
     'gfx.sum.noShadows': 'sin sombras', 'gfx.sum.shadows': 'sombras {n}²', 'gfx.sum.ao': 'oclusión ambiental',
     'gfx.sum.aoFull': 'oclusión ambiental completa', 'gfx.sum.bloom': 'resplandor', 'gfx.sum.reflections': 'reflejos del suelo',
-    'gfx.sum.noAA': 'sin suavizado',
+    'gfx.sum.noAA': 'sin suavizado', 'gfx.level': 'Nivel {n}',
   },
   de: {
     'gfx.auto': 'Automatisch (erkannt: {tier})',
@@ -1845,7 +1845,7 @@ const GFX = {
     'gfx.tier.static': 'Statisch', 'gfx.tier.animated': 'Animiert', 'gfx.tier.plain': 'Einfach', 'gfx.tier.detailed': 'Detailliert',
     'gfx.sum.noShadows': 'keine Schatten', 'gfx.sum.shadows': '{n}²-Schatten', 'gfx.sum.ao': 'Umgebungsverdeckung',
     'gfx.sum.aoFull': 'volle Umgebungsverdeckung', 'gfx.sum.bloom': 'Leuchteffekt', 'gfx.sum.reflections': 'Bodenspiegelungen',
-    'gfx.sum.noAA': 'keine Kantenglättung',
+    'gfx.sum.noAA': 'keine Kantenglättung', 'gfx.level': 'Stufe {n}',
   },
   fr: {
     'gfx.auto': 'Automatique (détecté : {tier})',
@@ -1862,7 +1862,7 @@ const GFX = {
     'gfx.tier.static': 'Statique', 'gfx.tier.animated': 'Animé', 'gfx.tier.plain': 'Simple', 'gfx.tier.detailed': 'Détaillé',
     'gfx.sum.noShadows': 'sans ombres', 'gfx.sum.shadows': 'ombres {n}²', 'gfx.sum.ao': 'occlusion ambiante',
     'gfx.sum.aoFull': 'occlusion ambiante complète', 'gfx.sum.bloom': 'halo lumineux', 'gfx.sum.reflections': 'reflets au sol',
-    'gfx.sum.noAA': 'sans anticrénelage',
+    'gfx.sum.noAA': 'sans anticrénelage', 'gfx.level': 'Niveau {n}',
   },
   pt: {
     'gfx.auto': 'Automático (detectado: {tier})',
@@ -1879,7 +1879,7 @@ const GFX = {
     'gfx.tier.static': 'Estático', 'gfx.tier.animated': 'Animado', 'gfx.tier.plain': 'Simples', 'gfx.tier.detailed': 'Detalhado',
     'gfx.sum.noShadows': 'sem sombras', 'gfx.sum.shadows': 'sombras {n}²', 'gfx.sum.ao': 'oclusão ambiente',
     'gfx.sum.aoFull': 'oclusão ambiente completa', 'gfx.sum.bloom': 'brilho', 'gfx.sum.reflections': 'reflexos no piso',
-    'gfx.sum.noAA': 'sem suavização',
+    'gfx.sum.noAA': 'sem suavização', 'gfx.level': 'Nível {n}',
   },
   it: {
     'gfx.auto': 'Automatico (rilevato: {tier})',
@@ -1896,7 +1896,7 @@ const GFX = {
     'gfx.tier.static': 'Statico', 'gfx.tier.animated': 'Animato', 'gfx.tier.plain': 'Semplice', 'gfx.tier.detailed': 'Dettagliato',
     'gfx.sum.noShadows': 'nessuna ombra', 'gfx.sum.shadows': 'ombre {n}²', 'gfx.sum.ao': 'occlusione ambientale',
     'gfx.sum.aoFull': 'occlusione ambientale completa', 'gfx.sum.bloom': 'bagliore', 'gfx.sum.reflections': 'riflessi del pavimento',
-    'gfx.sum.noAA': 'nessun anti-aliasing',
+    'gfx.sum.noAA': 'nessun anti-aliasing', 'gfx.level': 'Livello {n}',
   },
 };
 Object.assign(enUS, GFX.en, EXTRA.en);

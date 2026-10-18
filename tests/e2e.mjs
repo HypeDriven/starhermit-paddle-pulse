@@ -193,6 +193,8 @@ async function runPass(vpName, contextOpts) {
         const t = document.getElementById('gfx-summary')?.textContent || '';
         return /floor reflections/.test(t) && !/bloom/.test(t);
       }, null, { timeout: 10000 });
+      const sum = await page.locator('#gfx-summary').innerText();
+      if (!/ · Level 0 · /.test(sum)) throw new Error(`summary lacks the hardware level: ${sum}`);
       await page.screenshot({ path: SHOT('graphics', vpName) });
       await page.click('[data-screen="settings"] [data-action="back"]');
 

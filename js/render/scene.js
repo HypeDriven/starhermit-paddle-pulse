@@ -26,7 +26,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ParticlePool, Trail, LAYER_ENV, LAYER_GAME, LAYER_FX } from './vfx.js';
-import { detectPreset, describe, resolve, SHADOW_MAP } from './gfx.js';
+import { detectLevel, presetForLevel, describe, resolve, sparkCap, moteCount, SHADOW_MAP } from './gfx.js';
 import { getTheme, CVD_PALETTES } from '../content/themes.js';
 import { createRng, range, next } from '../rules/rng.js';
 import { paddleY, DEFAULT_RULESET } from '../rules/engine.js';
@@ -94,8 +94,16 @@ export class ArenaRenderer {
     this._dirty = true;
     this._initRenderer();
     this.gpu = readGpu(this.renderer);
-    this.detected = detectPreset(this.gpu, { touch: isTouchOnly() });
-    this.q = resolve({}, this.detected);
+    // StarHermit hardware level (js/render/gpu-level.js): renderer string + device facts (phone/tablet,
+    // cores, memory, screen).
+    let sys = { mobile: isTouchOnly(), webgl2: this.renderer.capabilities.isWebGL2 };
+    try {
+      const G = globalThis.StarHermitGpu;
+      if (G) { const d = G.detectSystem(); sys = { ...sys, mobile: sys.mobile || d.mobile, touch: d.touch, screen: d.screen, cores: d.cores, memoryGb: d.memoryGb, astc: d.astc }; }
+    } catch { /* defaults */ }
+    this.gpuLevel = detectLevel(this.gpu, sys);
+    this.detected = presetForLevel(this.gpuLevel);
+    this.q = resolve({}, this.detected, this.gpuLevel);
     this._shake = 0;
     this._shakeSeed = 0;
     this._camPos = new THREE.Vector3();
@@ -165,21 +173,24 @@ export class ArenaRenderer {
   /** Apply saved graphics settings (the `settings.graphics` object); live, no reload. */
   setGraphics(saved) {
     const prev = this.q;
-    const g = resolve(saved, this.detected);
+    const g = resolve(saved, this.detected, this.gpuLevel);
     this.q = g;
     this.saved = { ...(saved || {}) };
     const size = SHADOW_MAP[g.shadows];
     this.renderer.shadowMap.enabled = size > 0;
     this.renderer.shadowMap.needsUpdate = true;
-    this.fx?.setTier(g.particles);
+    this.fx?.setTier(g.particles, sparkCap(g));
     this._applyShadows();
     this.adaptiveScale = 1;
     this._frames = [];
     this.postKey = null; // rebuild the post chain on the next frame
     this._fpsVisible(g.showFps);
     document.body.dataset.gfxPreset = g.preset;
+    // Frosted HUD pill / menu screens over the live arena only where the budget allows (High/Ultra).
+    document.body.classList.toggle('gfx-hud-blur', !!g.budget.hudBlur);
     // Scene-shape settings rebuild the arena from its retained descriptors.
-    const rebuild = prev && this._lastBuild && (prev.detail !== g.detail || prev.reflections !== g.reflections || prev.background !== g.background || prev.particles !== g.particles);
+    const rebuild = prev && this._lastBuild && (prev.detail !== g.detail || prev.reflections !== g.reflections || prev.background !== g.background || prev.particles !== g.particles ||
+      JSON.stringify(prev.budget) !== JSON.stringify(g.budget));
     if (rebuild) this.build(this._lastBuild.ruleset, this._lastBuild.themeId, this._lastBuild.opts);
     else this._markMaterials();
     this._dirty = true;
@@ -190,6 +201,7 @@ export class ArenaRenderer {
     const px = [Math.round(this.size[0] * this.pixelRatio), Math.round(this.size[1] * this.pixelRatio)];
     return {
       gpu: this.gpu || 'unknown GPU',
+      level: this.gpuLevel,
       detected: this.detected,
       resolved: this.q,
       summary: describe(this.q, px, tr),
@@ -281,7 +293,7 @@ export class ArenaRenderer {
     this._buildSurround();
     this._buildMotes();
 
-    this.fx = new ParticlePool(this.q.particles);
+    this.fx = new ParticlePool(this.q.particles, sparkCap(this.q));
     this.fx.budgetScale = this.reducedMotion ? 0.35 : 1;
     this.scene.add(this.fx.points);
     this.trail = new Trail({ color: this.theme.ball });
@@ -316,8 +328,15 @@ export class ArenaRenderer {
   }
 
   _std(params) {
-    // Detailed look: PBR with clearcoat on glossy pieces and IBL reflections.
-    if (this.detailed) {
+    // Per the preset's budget: Lambert on Low (emissive kept), Standard on Balanced, and on High/Ultra
+    // the detailed look — PBR with clearcoat on glossy pieces and IBL reflections.
+    const tier = this.q.budget.material;
+    if (tier === 'lambert') {
+      const keep = {};
+      for (const k of ['color', 'emissive', 'emissiveIntensity', 'map', 'transparent', 'opacity']) if (params[k] !== undefined) keep[k] = params[k];
+      return new THREE.MeshLambertMaterial(keep);
+    }
+    if (this.detailed && tier === 'physical') {
       return new THREE.MeshPhysicalMaterial({ envMapIntensity: ENV_INTENSITY, ...params });
     }
     const { clearcoat, clearcoatRoughness, ...rest } = params;
@@ -379,7 +398,7 @@ export class ArenaRenderer {
     const fh = this.detailed ? Math.max(w, h) * 5 : h + 10;
     let mat;
     if (this.detailed) {
-      const tex = floorTexture(this.theme);
+      const tex = floorTexture(this.theme, this.q.budget.texture);
       tex.repeat.set(fw / 4, fh / 4);
       const reflect = this.q.reflections === 'on';
       mat = new THREE.MeshStandardMaterial({
@@ -393,7 +412,7 @@ export class ArenaRenderer {
         opacity: reflect ? 0.64 : 1,
       });
       if (reflect) {
-        const [rw, rh] = reflectionSize(this.canvas.clientWidth || 800, this.canvas.clientHeight || 600, 1);
+        const [rw, rh] = reflectionSize(this.canvas.clientWidth || 800, this.canvas.clientHeight || 600, this.q.budget.reflectRes);
         const refl = new Reflector(new THREE.PlaneGeometry(fw, fh), {
           textureWidth: rw,
           textureHeight: rh,
@@ -417,7 +436,7 @@ export class ArenaRenderer {
         this.reflector = refl;
       }
     } else {
-      mat = new THREE.MeshStandardMaterial({ color: this.theme.floor, roughness: 0.85, metalness: 0.25 });
+      mat = this._std({ color: this.theme.floor, roughness: 0.85, metalness: 0.25 });
     }
     // Push the floor's depth back so the grid/centre line on it never z-fight
     // at distance; a see-through (reflective) floor draws first and writes no depth.
@@ -488,7 +507,7 @@ export class ArenaRenderer {
       clearcoatRoughness: 0.25,
     });
     for (const s of [-1, 1]) {
-      const geo = this.detailed ? new RoundedBoxGeometry(0.3, 0.5, h + 0.6, 2, 0.08) : new THREE.BoxGeometry(0.3, 0.5, h + 0.6);
+      const geo = this.detailed ? new RoundedBoxGeometry(0.3, 0.5, h + 0.6, this.q.budget.roundSeg, 0.08) : new THREE.BoxGeometry(0.3, 0.5, h + 0.6);
       const rail = new THREE.Mesh(geo, mat);
       rail.position.set(s * (w / 2 + 0.15), 0.25, 0);
       rail.castShadow = true;
@@ -542,7 +561,7 @@ export class ArenaRenderer {
         const bw = (o.hw || 1) * 2;
         const bd = (o.hh || 0.5) * 2;
         mesh = new THREE.Mesh(
-          this.detailed ? new RoundedBoxGeometry(bw, 0.55, bd, 2, 0.08) : new THREE.BoxGeometry(bw, 0.55, bd),
+          this.detailed ? new RoundedBoxGeometry(bw, 0.55, bd, this.q.budget.roundSeg, 0.08) : new THREE.BoxGeometry(bw, 0.55, bd),
           this._std({ color: 0x101425, roughness: 0.4, metalness: 0.7, emissive: this.theme.obstacle, emissiveIntensity: 0.55, clearcoat: 0.8, clearcoatRoughness: 0.2 })
         );
         mesh.position.y = 0.3;
@@ -563,7 +582,7 @@ export class ArenaRenderer {
       const color = side === 0 ? this.theme.paddleA : this.theme.paddleB;
       const group = new THREE.Group();
       const body = new THREE.Mesh(
-        this.detailed ? new RoundedBoxGeometry(r.paddleWidth, 0.42, 0.72, 3, 0.12) : new THREE.BoxGeometry(r.paddleWidth, 0.42, 0.72),
+        this.detailed ? new RoundedBoxGeometry(r.paddleWidth, 0.42, 0.72, this.q.budget.roundSeg + 1, 0.12) : new THREE.BoxGeometry(r.paddleWidth, 0.42, 0.72),
         this._std({ color: 0x0c1020, roughness: 0.3, metalness: 0.75, emissive: color, emissiveIntensity: 0.55, clearcoat: 1, clearcoatRoughness: 0.12 })
       );
       body.position.y = 0.32;
@@ -585,7 +604,7 @@ export class ArenaRenderer {
 
     this.ballMesh = new THREE.Group();
     const ball = new THREE.Mesh(
-      new THREE.SphereGeometry(r.ballRadius, this.detailed ? 32 : 24, this.detailed ? 24 : 18),
+      new THREE.SphereGeometry(r.ballRadius, this.q.budget.ballSeg[0], this.q.budget.ballSeg[1]),
       this._std({ color: 0x101018, roughness: 0.25, metalness: 0.4, emissive: this.theme.ball, emissiveIntensity: 1.6, clearcoat: 1, clearcoatRoughness: 0.05 })
     );
     ball.castShadow = true;
@@ -602,7 +621,7 @@ export class ArenaRenderer {
     // Restrained environmental storytelling: a dim ring of instanced pillars
     // (deterministic decorative seed, instanced in one draw call).
     const detail = this.detailed ? 1 : 0.35;
-    const count = Math.max(6, Math.round(18 * detail));
+    const count = Math.max(6, Math.round(this.q.budget.pillars * detail));
     // Decorative stream is seeded from the theme, never from rules randomness.
     const rng = createRng(0xdec0 ^ String(this.theme.id).length ^ (this.theme.wall & 0xffff));
     const geo = new THREE.BoxGeometry(0.5, 1, 0.5);
@@ -656,7 +675,7 @@ export class ArenaRenderer {
     // Drifting dust motes in the arena light (animated background only).
     this.motes = null;
     if (this.q.background !== 'animated') return;
-    const n = { low: 60, medium: 140, high: 240 }[this.q.particles] || 140;
+    const n = moteCount(this.q);
     const rng = createRng(0x307e5 ^ (this.theme.accent & 0xffff));
     const pos = new Float32Array(n * 3);
     const { w, h } = this.ruleset.arena;
@@ -1002,11 +1021,11 @@ export class ArenaRenderer {
         ao.blendIntensity = 0.75;
         ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: g.ao === 'high' ? 16 : 8 });
         ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: g.ao === 'high' ? 6 : 4, rings: 2, samples: g.ao === 'high' ? 16 : 8 });
-        composer.addPass(ao);
+        composer.addPass(atScale(ao, g.budget.aoRes));
       }
       if (g.bloom === 'on') {
         // High threshold: only HDR neon strips, the ball and highlights bloom.
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.62 * (this.theme?.bloom ?? 1), 0.5, 0.88));
+        composer.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.62 * (this.theme?.bloom ?? 1), 0.5, 0.88), g.budget.bloomRes));
       }
       if (g.grade === 'on') composer.addPass(new ShaderPass(GradeShader));
       composer.addPass(new OutputPass());
@@ -1101,6 +1120,15 @@ function readGpu(renderer) {
 
 // Mirror target at CSS-pixel resolution (thin neon lines alias into dots at
 // half resolution), capped so large displays stay affordable.
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
 function reflectionSize(w, h, ratio) {
   const k = Math.min(1, 1600 / Math.max(w * ratio, h * ratio, 1));
   return [Math.max(128, Math.round(w * ratio * k)), Math.max(128, Math.round(h * ratio * k))];
@@ -1116,8 +1144,7 @@ function isTouchOnly() {
 
 // Brushed panel tiles: seams + seeded speckle. Red/green channels hold the
 // albedo variation; the same texture drives roughness (G) so seams read glossy.
-function floorTexture(theme) {
-  const size = 256;
+function floorTexture(theme, size = 256) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
@@ -1126,7 +1153,7 @@ function floorTexture(theme) {
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4;
-      const seam = x % 128 < 3 || y % 128 < 3;
+      const seam = x % (size / 2) < 3 * size / 256 || y % (size / 2) < 3 * size / 256;
       const n = next(rng) * 0.12 + Math.sin((x + y * 0.35) * 0.4) * 0.02;
       const v = seam ? 0.35 : 0.78 + n;
       const r = seam ? 0.45 : 0.72 + n * 1.5;

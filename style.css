@@ -81,7 +81,6 @@ code, kbd {
   background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: 999px;
-  backdrop-filter: blur(6px);
 }
 .hud-name { font-size: 0.8rem; color: var(--ink-dim); max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud-score {
@@ -147,9 +146,12 @@ body.left-handed .hud-rail-right { right: auto; left: 16px; }
   overflow-y: auto;
   pointer-events: auto;
   background: rgba(3, 5, 12, 0.62);
-  backdrop-filter: blur(4px);
   animation: screen-in 160ms ease-out;
 }
+/* Frosted glass over the live arena only where the graphics budget allows it (High/Ultra,
+   body.gfx-hud-blur): a backdrop blur is re-composited every frame the arena moves. */
+body.gfx-hud-blur .hud-status { backdrop-filter: blur(6px); }
+body.gfx-hud-blur .screen { backdrop-filter: blur(4px); }
 @keyframes screen-in { from { opacity: 0; } to { opacity: 1; } }
 /* a screen opened over another (setup over title, settings over pause) hides the one below */
 .screen ~ .screen { background: rgba(3, 5, 12, 0.9); }

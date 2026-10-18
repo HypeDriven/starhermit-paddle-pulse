@@ -13,8 +13,9 @@ export const LAYER_UI_ANCHOR = 3;
 const TIER_PARTICLES = { low: 400, medium: 1200, high: 2400 };
 
 export class ParticlePool {
-  constructor(tier = 'medium') {
-    this.capacity = TIER_PARTICLES[tier] || TIER_PARTICLES.medium;
+  // `capacity` (the preset's budget, gfx.js sparkCap) overrides the tier's default pool size.
+  constructor(tier = 'medium', capacity = null) {
+    this.capacity = capacity || TIER_PARTICLES[tier] || TIER_PARTICLES.medium;
     const n = this.capacity;
     this.positions = new Float32Array(n * 3);
     this.velocities = new Float32Array(n * 3);
@@ -97,9 +98,10 @@ export class ParticlePool {
     geo.attributes.size.needsUpdate = true;
   }
 
-  setTier(tier) {
+  setTier(tier, capacity = null) {
     // Shrink logical capacity without reallocating GPU buffers.
-    this.capacity = Math.min(TIER_PARTICLES[tier] || TIER_PARTICLES.medium, this.positions.length / 3);
+    this.capacity = Math.min(capacity || TIER_PARTICLES[tier] || TIER_PARTICLES.medium, this.positions.length / 3);
+    this.head = 0;
     for (let i = 0; i < this.life.length; i++) this.life[i] = 0;
   }
 
