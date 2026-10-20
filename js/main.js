@@ -1259,8 +1259,19 @@ function commitGraphics(focusId) {
   saveSettings();
   applySettings();
   refreshGraphicsSection(focusId);
-  // Pixel size and post-chain state settle on the next frames.
-  setTimeout(() => refreshGraphicsSection(null), 250);
+  // Pixel size and post-chain state settle on the next frames: refresh only
+  // the status lines then. Redrawing the controls again would replace one the
+  // player may already be pressing, and that click would be lost.
+  setTimeout(refreshGraphicsStatus, 250);
+}
+
+function refreshGraphicsStatus() {
+  const box = document.getElementById('gfx-box');
+  if (!box || !renderer) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = graphicsSection(settings, renderer.graphicsInfo(t));
+  box.querySelectorAll('#gfx-summary, #gfx-post-note').forEach((n) => n.remove());
+  box.append(...tpl.content.querySelectorAll('#gfx-summary, #gfx-post-note'));
 }
 
 // Redraws only the game's own Graphics box: the shared Frame rate / Language /
