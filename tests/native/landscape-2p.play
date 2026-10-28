@@ -1,0 +1,35 @@
+# viewport 844x390@3
+# A phone held sideways: the title, then Hosted Play's shared-screen 2P (player 2 on A / D, W), the HUD's slim
+# side rails, a serve by each player, pause, settings over the pause menu, and leaving.
+until 300 Paddle Pulse
+frames 30
+save title
+touch =All modes
+until 60 Choose a mode
+frames 10
+touch =Hosted Play
+until 60 Shared-screen 2P
+frames 10
+touch =Shared-screen 2P
+until 400 =GO
+frames 90
+key Space 3
+hold KeyA
+frames 30
+release KeyA
+frames 60
+save play
+key Escape 2
+until 60 Restart match
+frames 10
+touch =Settings
+until 60 Accessibility
+frames 10
+save settings
+touch =Done
+until 60 Restart match
+frames 10
+save pause
+touch =Leave match
+until 60 Choose a mode
+frames 10

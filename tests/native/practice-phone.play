@@ -1,0 +1,32 @@
+# viewport 390x844@3
+# Practice on a phone: the finger taps Play and Start, drags the paddle on the arena, taps the tray's Serve,
+# pauses, undoes nothing yet, restarts, pauses again and leaves to the modes.
+until 300 Paddle Pulse
+frames 30
+save title
+touch =Play
+until 60 Recovery
+frames 10
+save setup
+touch =Start
+until 400 =GO
+frames 100
+swipe 195 420 80 420 20
+frames 10
+touch =Serve
+frames 120
+save rally
+touch =Pause
+until 60 Restart match
+frames 10
+save pause
+touch =Restart match
+until 400 =GO
+frames 60
+touch =Pause
+until 60 Leave match
+frames 10
+touch =Leave match
+until 60 Choose a mode
+frames 10
+save modes

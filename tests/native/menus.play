@@ -1,0 +1,98 @@
+# Every screen from the title on the desktop layout: modes, Journey map, Daily, Challenges, Learn, Hosted Play,
+# achievements, leaderboards, settings (camera view, palette and a check box changed and changed back), help with the
+# effective keys, profile (a display name typed and saved, shown on the title card), back to the title each time.
+until 300 Paddle Pulse
+frames 30
+save title
+click =All modes
+until 60 Choose a mode
+frames 10
+save modes
+click =Challenge
+until 60 Economy of Motion
+frames 10
+save challenges
+click =Back
+until 60 Choose a mode
+frames 10
+click =Hosted Play
+until 60 Shared-screen 2P
+frames 10
+expect Online rooms with friends are planned
+save lobby
+click =Back
+until 60 Choose a mode
+frames 10
+click =Back
+until 60 Own the angle
+frames 10
+click =Journey
+until 60 0/40 cleared
+frames 10
+expect Ignition
+save journey
+click =Back
+until 60 Own the angle
+frames 10
+click =Daily Pulse
+until 60 Next daily in
+frames 10
+save daily
+click =Back
+until 60 Own the angle
+frames 10
+click =Achievements
+until 60 First Light
+frames 10
+save achievements
+click =Back
+until 60 Own the angle
+frames 10
+click =Leaderboards
+until 60 Friends
+frames 10
+expect No entries yet
+save boards
+click =Back
+until 60 Own the angle
+frames 10
+click =Settings
+until 60 Accessibility
+frames 10
+save settings
+click =Behind paddle
+frames 10
+click =Tritanopia
+frames 10
+click =Ball trails
+frames 10
+save settings-changed
+click =Broadcast
+frames 10
+click =Standard
+frames 10
+click =Ball trails
+frames 10
+click =Done
+until 60 Own the angle
+frames 10
+click =Help
+until 60 Fair play
+frames 10
+expect Arrow Left
+save help
+click =Back
+until 60 Own the angle
+frames 10
+click =Guest
+until 60 Career
+frames 10
+click =Guest
+frames 5
+type Tess
+frames 5
+click =Save
+until 60 Own the angle
+frames 10
+expect Tess
+save title-named

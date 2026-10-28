@@ -290,6 +290,8 @@ let keyTarget = 0;
 let p2Target = 0;
 let pointerX: number | null = null;
 let lastMoveSent = 0;
+let keyOrigin: number | null = null;
+let keyDir = 0;
 let lastInvalidToast = -10;
 export function startMatch(ctx: Ctx | null = app.ctx): void {
   if (!ctx) return;
@@ -306,6 +308,7 @@ export function startMatch(ctx: Ctx | null = app.ctx): void {
   keyTarget = 0;
   p2Target = 0;
   lastMoveSent = 0;
+  keyOrigin = null;
   pointerX = null;
   timers.length = 0;
   render.build(app.match.state.ruleset, ctx.theme || "neon-district", { side: 0, cvd: settings.accessibility.palette, view: settings.camera.view });
@@ -406,7 +409,9 @@ function submitMove(player: number, x: number): void {
   const prevTx = m.state.paddles[player]!.tx;
   const res = m.submit({ id: Sess.nextCmdId(player), player, type: Rules.CMD.MOVE, x });
   if (!res.ok) explainInvalid(res.reason ?? "");
-  else if (app.lesson && player === 0) lessonEvent({ t: "cmd", type: "move", dx: x - prevTx });
+  // The Move lesson asks for a move of more than half a unit: a held key sends the target in quarter-unit steps,
+  // so its moves count from where the paddle was when the key went down (the browser build only saw drags pass).
+  else if (app.lesson && player === 0) lessonEvent({ t: "cmd", type: "move", dx: x - (keyOrigin ?? prevTx) });
 }
 export function submitServe(player = 0): void {
   const m = app.match;
@@ -803,9 +808,10 @@ function pollInputs(): void {
     if (Math.abs(dir) < 0.2) dir = 0;
     if (settings.accessibility.leftHanded) dir = -dir;
     if (dir !== 0) {
+      if (keyOrigin === null || Math.sign(dir) !== keyDir) { keyOrigin = m.state.paddles[0]!.tx; keyDir = Math.sign(dir); }
       keyTarget = Math.max(-half, Math.min(half, keyTarget + dir * speed * DT));
       if (Math.abs(keyTarget - m.state.paddles[0]!.tx) > 0.25) submitMove(0, keyTarget);
-    } else keyTarget = m.state.paddles[0]!.tx;
+    } else { keyTarget = m.state.paddles[0]!.tx; keyOrigin = null; }
   }
   if (app.ctx?.mode === "hosted-local") {
     const half2 = r.arena.w / 2 - m.state.paddles[1]!.halfW;

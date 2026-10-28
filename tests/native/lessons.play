@@ -1,0 +1,41 @@
+# Learn's first two lessons through the real UI: Move (hold ← then →; the opponent holds still) to its
+# "Lesson complete" results, Back to Learn (both marked done ✓ afterwards), then Serve (Space).
+until 300 Paddle Pulse
+frames 30
+click =All modes
+until 60 Choose a mode
+frames 10
+click =Learn
+until 60 Short interactive lessons
+frames 10
+save learn
+click =1. Slide your paddle left and right.
+until 400 =GO
+frames 90
+hold ArrowLeft
+frames 40
+release ArrowLeft
+frames 20
+save step-2
+hold ArrowRight
+frames 80
+release ArrowRight
+until 300 Lesson complete
+frames 30
+expect Lesson 1 — Move
+save move-done
+click =Back to Learn
+until 60 Short interactive lessons
+frames 10
+expect Slide your paddle left and right. ✓
+click =2. Put the ball in play.
+until 400 =GO
+frames 90
+key Space 3
+until 300 Lesson complete
+frames 30
+save serve-done
+click =Back to Learn
+until 60 Short interactive lessons
+frames 10
+expect Put the ball in play. ✓
