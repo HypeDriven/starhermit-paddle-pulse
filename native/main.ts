@@ -24,7 +24,7 @@
 import { clipboard, frame, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { isDown, onAction, onPointerButton, onPointerMove, onTouch, value, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
-import { onSessionEnded, requestSignIn } from "starhermit:platform";
+import { onSessionEnded, reportBug, requestSignIn } from "starhermit:platform";
 import {
   Ach, Daily, Levels, Rules, Sess, Store, Themes, Tutorials, type Breakdown, type Challenge, type Daily as DailyCard, type Difficulty, type Lesson,
   type Level, type Match, type Ruleset, type RulesEvent, type Seat, type Terminal,
@@ -76,6 +76,8 @@ export const app = {
   boards: null as platform.BoardLine[] | null | "loading",
   confirmReset: false,
   nameField: "",
+  reportField: "",
+  reportSending: false,
   resumeAgo: 0,
   toasts: [] as { text: string; kind: string; until: number }[],
   caption: null as { text: string; until: number } | null,
@@ -722,6 +724,19 @@ export function copyInvite(): void {
   if (!link) return;
   try { clipboard.writeText(link); toast(t("toast.inviteCopied"), "success"); }
   catch { toast(t("toast.inviteFailed"), "error"); }
+}
+/** Settings › Report a problem (signed in): a bug report with a small non-personal context (the browser build's game-options.js report). */
+export function sendReport(): void {
+  const text = app.reportField.trim();
+  if (!text || app.reportSending) return;
+  click();
+  app.reportSending = true;
+  const f = frame();
+  const context = { viewport: [f.width, f.height, f.scale], language: preferences().language, level: f.level, phase: app.phase, mode: app.ctx?.mode ?? null };
+  reportBug({ title: `Paddle Pulse: ${text.slice(0, 80)}`, description: text.slice(0, 4000), context }).then(
+    () => { app.reportField = ""; app.reportSending = false; toast(t("nat.reportSent"), "success"); },
+    () => { app.reportSending = false; toast(t("nat.reportFailed"), "error"); },
+  );
 }
 export function signIn(): void { click(); void requestSignIn().catch(() => undefined); }
 export function refreshBoards(): void {

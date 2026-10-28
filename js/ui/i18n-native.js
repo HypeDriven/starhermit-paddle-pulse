@@ -3,6 +3,11 @@
 // fr → fr-FR and fr-CA, en → en-US and en-GB).
 export const NATIVE = {
   en: {
+    'nat.report': "Report a problem",
+    'nat.reportPlaceholder': "What went wrong?",
+    'nat.reportSend': "Send report",
+    'nat.reportSent': "Report sent — thank you.",
+    'nat.reportFailed': "The report could not be sent.",
     'nat.options': 'Options…',
     'nat.optionsNote': 'Volumes, graphics, language, text size, reduced motion and high contrast are in Options.',
     'nat.cancel': 'Cancel',
@@ -14,6 +19,11 @@ export const NATIVE = {
     'nat.lobbyOffline': 'Playing as a guest — shared-screen 2P works anywhere.',
   },
   es: {
+    'nat.report': "Informar de un problema",
+    'nat.reportPlaceholder': "¿Qué salió mal?",
+    'nat.reportSend': "Enviar informe",
+    'nat.reportSent': "Informe enviado. ¡Gracias!",
+    'nat.reportFailed': "No se pudo enviar el informe.",
     'nat.options': 'Opciones…',
     'nat.optionsNote': 'El volumen, los gráficos, el idioma, el tamaño del texto, el movimiento reducido y el alto contraste están en Opciones.',
     'nat.cancel': 'Cancelar',
@@ -25,6 +35,11 @@ export const NATIVE = {
     'nat.lobbyOffline': 'Juegas como invitado: el 2P en pantalla compartida funciona en cualquier sitio.',
   },
   de: {
+    'nat.report': "Problem melden",
+    'nat.reportPlaceholder': "Was ist schiefgelaufen?",
+    'nat.reportSend': "Bericht senden",
+    'nat.reportSent': "Bericht gesendet – danke!",
+    'nat.reportFailed': "Der Bericht konnte nicht gesendet werden.",
     'nat.options': 'Optionen…',
     'nat.optionsNote': 'Lautstärke, Grafik, Sprache, Textgröße, reduzierte Bewegung und hoher Kontrast findest du in den Optionen.',
     'nat.cancel': 'Abbrechen',
@@ -36,6 +51,11 @@ export const NATIVE = {
     'nat.lobbyOffline': 'Du spielst als Gast – 2P am geteilten Bildschirm funktioniert überall.',
   },
   fr: {
+    'nat.report': "Signaler un problème",
+    'nat.reportPlaceholder': "Qu’est-ce qui n’a pas fonctionné ?",
+    'nat.reportSend': "Envoyer le rapport",
+    'nat.reportSent': "Rapport envoyé — merci !",
+    'nat.reportFailed': "Le rapport n’a pas pu être envoyé.",
     'nat.options': 'Options…',
     'nat.optionsNote': 'Le volume, les graphismes, la langue, la taille du texte, les mouvements réduits et le contraste élevé sont dans les Options.',
     'nat.cancel': 'Annuler',
@@ -47,6 +67,11 @@ export const NATIVE = {
     'nat.lobbyOffline': 'Vous jouez en invité : le 2P sur écran partagé fonctionne partout.',
   },
   pt: {
+    'nat.report': "Relatar um problema",
+    'nat.reportPlaceholder': "O que deu errado?",
+    'nat.reportSend': "Enviar relatório",
+    'nat.reportSent': "Relatório enviado — obrigado!",
+    'nat.reportFailed': "Não foi possível enviar o relatório.",
     'nat.options': 'Opções…',
     'nat.optionsNote': 'Volume, gráficos, idioma, tamanho do texto, movimento reduzido e alto contraste ficam em Opções.',
     'nat.cancel': 'Cancelar',
@@ -58,6 +83,11 @@ export const NATIVE = {
     'nat.lobbyOffline': 'Jogando como convidado — o 2P em tela compartilhada funciona em qualquer lugar.',
   },
   it: {
+    'nat.report': "Segnala un problema",
+    'nat.reportPlaceholder': "Che cosa non ha funzionato?",
+    'nat.reportSend': "Invia segnalazione",
+    'nat.reportSent': "Segnalazione inviata, grazie!",
+    'nat.reportFailed': "Impossibile inviare la segnalazione.",
     'nat.options': 'Opzioni…',
     'nat.optionsNote': 'Volume, grafica, lingua, dimensione del testo, movimento ridotto e alto contrasto si trovano in Opzioni.',
     'nat.cancel': 'Annulla',

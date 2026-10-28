@@ -25,7 +25,7 @@ import {
   app, back, canServe, canUndo, challengeCtx, click, copyInvite, dailyNow, discardSnapshot, doUndo, hostLocal, hudRects, journeyCtx,
   later, leaderboardLine, leaveMatch, msUntilNextDaily, openPause, openScreen, openSetup, playDaily, playLesson, playerName, progress,
   quickPlay, replayTutorials, resetProgress, restartMatch, resultsNext, resultsRetry, resultsVerify, resumeFromSnapshot, resumeMatch,
-  saveProfileName, setSetting, settings, signIn, startMatch, submitServe, syncNow, top, type Screen,
+  saveProfileName, sendReport, setSetting, settings, signIn, startMatch, submitServe, syncNow, top, type Screen,
 } from "./main.ts";
 
 // ------------------------------------------------------------------ layout
@@ -326,14 +326,41 @@ function captions(L: Layout): void {
     ui.row("caption-row", () => ui.style("caption-text").id("caption").label(c.text), { style: "caption" });
   });
 }
+/** Word-wrapped lines of `text` at most `width` logical px wide in a text class. */
+function wrapLines(text: string, cls: string, width: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of text.split(/\s+/)) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (cur && textWidth(next, cls) > width) { lines.push(cur); cur = word; } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+/** The toasts: drawn by role-"none" widgets in a placed column that paints nothing, so they never take the pointer from
+ * the buttons under them. */
 function toasts(L: Layout): void {
   if (!app.toasts.length) return;
   const w = Math.min(480, L.lw * 0.9);
-  ui.place("toasts", { anchor: "bottom", y: L.phone && app.match && !top() ? 170 : 18 }, () => {
+  // Over a screen the toasts go to the top so they cover its buttons less (phone sheets, short landscape panels).
+  const at = top() ? { anchor: "top" as const, y: 12 } : { anchor: "bottom" as const, y: L.phone && app.match ? 170 : 18 };
+  const prefs = ui.preferences();
+  ui.place("toasts", at, () => {
     ui.column("toast-col", () => {
-      app.toasts.forEach((x, i) => {
+      app.toasts.forEach((x) => {
         const cls = x.kind === "error" ? "toast-error" : x.kind === "success" ? "toast-success" : x.kind === "info" ? "toast-info" : "toast";
-        ui.row(`toast-${i}`, () => para(x.text, w - 40, x.kind === "error" ? "toast-error-text" : "toast-text", `toast-text-${i}`, "center"), { style: cls });
+        const tcls = x.kind === "error" ? "toast-error-text" : "toast-text";
+        const lines = wrapLines(x.text, tcls, w - 40);
+        const lw = Math.max(...lines.map((l) => textWidth(l, tcls)));
+        const lh = ui.measureText("Ag", { style: [tcls] }).height / prefs.scale;
+        ui.widget("", {
+          role: "none", size: { width: lw + 38, height: lines.length * lh + 22 },
+          draw: (r, st) => {
+            draw.box(r.x, r.y, r.width, r.height, cls);
+            const color = x.kind === "error" ? "#ffb9c0" : st.highContrast ? "#ffffff" : "#e8f4ff";
+            lines.forEach((line, i) => draw.text(line, r.x + r.width / 2, r.y + (11 + i * lh) * st.scale, { size: 16 * st.scale * prefs.textScale, color, align: "center", font: "sans-serif" }));
+          },
+        });
       });
     }, { spacing: 8, align: "center" });
   });
@@ -608,6 +635,11 @@ function settingsScreen(w: number, L: Layout): void {
         { id: "btn-reset-yes", text: t("settings.reset"), style: "btn-danger", act: resetProgress },
         { id: "btn-reset-no", text: t("nat.cancel"), act: () => { click(); app.confirmReset = false; } },
       ], iw);
+    }
+    if (platform.signedIn()) {
+      ui.style("h3").label(t("nat.report"));
+      app.reportField = ui.style("field").id("report-text").textField("report-text", app.reportField, { maxChars: 500, width: iw, placeholder: t("nat.reportPlaceholder") });
+      flow("report-row", [{ id: "btn-report", text: t("nat.reportSend"), style: "btn-small", act: sendReport, disabled: !app.reportField.trim() || app.reportSending }], iw);
     }
   });
   if (two) {

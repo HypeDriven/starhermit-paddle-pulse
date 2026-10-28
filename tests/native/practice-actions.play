@@ -1,0 +1,61 @@
+# Practice from Play on the desktop: Hint (H), Camera (C) to Behind paddle and back, Undo (U) with nothing to
+# undo yet, a serve, Escape pauses, Resume counts down again, Restart, then leaving; then the Daily is started
+# from its card and left from the pause menu.
+until 300 Paddle Pulse
+frames 30
+click =Play
+until 60 Recovery
+frames 10
+click =Start
+until 400 =GO
+frames 90
+key KeyH 2
+frames 5
+expect Your serve
+key KeyC 2
+frames 5
+expect Camera: Behind paddle
+frames 60
+save behind
+key KeyC 2
+frames 5
+expect Camera: Broadcast
+key KeyU 2
+frames 5
+expect Nothing to undo yet
+key Space 2
+frames 60
+key Escape 2
+until 60 Restart match
+frames 10
+click =Resume
+until 400 =GO
+frames 30
+key Escape 2
+until 60 Restart match
+frames 10
+click =Restart match
+until 400 =GO
+frames 30
+key Escape 2
+until 60 Leave match
+frames 10
+click =Leave match
+until 60 Choose a mode
+frames 10
+click =Back
+until 60 Own the angle
+frames 10
+click =Daily Pulse
+until 60 Next daily in
+frames 10
+click =Play the daily
+until 400 =GO
+frames 60
+save daily
+key Escape 2
+until 60 Leave match
+frames 10
+click =Leave match
+until 60 Choose a mode
+frames 10

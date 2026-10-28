@@ -148,9 +148,9 @@ for (const v of views) {
       await page.waitForTimeout(400);
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(1200); await page.keyboard.up('ArrowRight');
     } else {
-      await swipe(W * 0.5, H * 0.5, W * 0.15, H * 0.5);
+      await swipe(W * 0.5, H * 0.5, W * 0.36, H * 0.5);
       await page.waitForTimeout(500);
-      await swipe(W * 0.15, H * 0.5, W * 0.85, H * 0.5);
+      await swipe(W * 0.38, H * 0.5, W * 0.64, H * 0.5);
     }
     await find('Back to Learn').waitFor({ timeout: 30000 });
     await page.waitForTimeout(800);
