@@ -9,6 +9,7 @@
 // and translated with tc() (tables in i18n-content.js).
 
 import { EXTRA, CONTENT } from './i18n-content.js';
+import { NATIVE } from './i18n-native.js';
 
 export const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 
@@ -1899,14 +1900,14 @@ const GFX = {
     'gfx.sum.noAA': 'nessun anti-aliasing', 'gfx.level': 'Livello {n}',
   },
 };
-Object.assign(enUS, GFX.en, EXTRA.en);
-Object.assign(es419, GFX.es, EXTRA.es);
-Object.assign(esES, GFX.es, EXTRA.es);
-Object.assign(deDE, GFX.de, EXTRA.de);
-Object.assign(frFR, GFX.fr, EXTRA.fr);
-Object.assign(frCA, GFX.fr, EXTRA.fr);
-Object.assign(ptBR, GFX.pt, EXTRA.pt);
-Object.assign(itIT, GFX.it, EXTRA.it);
+Object.assign(enUS, GFX.en, EXTRA.en, NATIVE.en);
+Object.assign(es419, GFX.es, EXTRA.es, NATIVE.es);
+Object.assign(esES, GFX.es, EXTRA.es, NATIVE.es);
+Object.assign(deDE, GFX.de, EXTRA.de, NATIVE.de);
+Object.assign(frFR, GFX.fr, EXTRA.fr, NATIVE.fr);
+Object.assign(frCA, GFX.fr, EXTRA.fr, NATIVE.fr);
+Object.assign(ptBR, GFX.pt, EXTRA.pt, NATIVE.pt);
+Object.assign(itIT, GFX.it, EXTRA.it, NATIVE.it);
 
 const STRINGS = {
   'en-US': enUS,
