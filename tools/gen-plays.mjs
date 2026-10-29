@@ -6,7 +6,7 @@
 // is 0.25 off), Space serving on the press, the fixed 120 Hz steps — and the
 // key changes become hold / release lines timed in fixed steps.
 //
-// Timing (measured on the 1.22.0 render check, one fixed step a frame): after
+// Timing (measured on the 1.23.0 render check, one fixed step a frame): after
 // `until =GO` (the countdown's GO label, 78 steps before tick 0), a key line
 // after `frames N` acts on tick N − 74; each hold / release line takes one
 // step and `frames N` takes N + 1. Decisions are taken every 4 ticks, one key
