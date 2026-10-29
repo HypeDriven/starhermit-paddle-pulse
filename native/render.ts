@@ -16,19 +16,18 @@
 // event-tiered shake, and the menu backdrop (the arena with a cosmetic rally
 // and a slow orbit; still under reduced motion or a static background).
 //
-// From three.js r160: light intensities are ÷ π (the engine's convention);
-// the post chain (GTAOPass, UnrealBloomPass threshold 0.88, the linear
+// From three.js r160 (engine.minor 26+): light intensities, normalBias and
+// the shadow box fitted around the arena as the page set them; the post chain (GTAOPass, UnrealBloomPass threshold 0.88, the linear
 // GradeShader, FXAA / SMAA / MSAA) is renderer.ao / bloom / grade /
 // antialias; the Reflector is a render target drawn each frame from the
-// mirrored camera and shown by a small WGSL material; the fitted shadow box is
-// the engine's shadow `distance`; the floor's per-pixel canvas is baked
+// mirrored camera and shown by a small WGSL material; the floor's per-pixel canvas is baked
 // (tools/bake-floor.mjs); dead sparks are hidden (the browser build left them
 // standing where they died, since three's PointsMaterial ignored its size
 // attribute). Cosmetic randomness never touches the rules' stream.
 import {
   ACESFilmicToneMapping, AdditiveBlending, AmbientLight, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color,
   CylinderGeometry, DirectionalLight, DynamicDrawUsage, Fog, Group, HemisphereLight, InstancedMesh, Line, LineBasicMaterial,
-  LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OctahedronGeometry,
+  LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OctahedronGeometry, OrthographicCamera,
   PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points, PointsMaterial, Quaternion, Raycaster, RenderTarget,
   RepeatWrapping, RoomEnvironment, RoundedBoxGeometry, ShaderMaterial, SphereGeometry, SRGBColorSpace, TextureLoader, TorusGeometry,
   Vector2, Vector3, renderer, scene, type BufferGeometry as Geo, type Material, type Object3D, type Texture,
@@ -165,6 +164,22 @@ function neon(color: number, detailed: boolean, opacity = 1, hdr = NEON_HDR): Me
   return new MeshBasicMaterial({ color: c, transparent: opacity < 1, opacity, fog: true });
 }
 
+/** scene.js _fitShadow: the key's shadow box fitted tightly around the play area (arena + rails + actor height). */
+function fitShadow(key: DirectionalLight, w: number, h: number): void {
+  const view = new Matrix4().lookAt(key.position, key.target.position, new Vector3(0, 1, 0));
+  view.setPosition(key.position);
+  const inv = view.clone().invert();
+  const min = new Vector3(Infinity, Infinity, Infinity), max = new Vector3(-Infinity, -Infinity, -Infinity), p = new Vector3();
+  for (const x of [-w / 2 - 0.6, w / 2 + 0.6]) for (const z of [-h / 2 - 1.2, h / 2 + 1.2]) for (const y of [0, 1.2]) {
+    p.set(x, y, z).applyMatrix4(inv);
+    min.min(p);
+    max.max(p);
+  }
+  const cam = key.shadow.camera as OrthographicCamera;
+  Object.assign(cam, { left: min.x, right: max.x, bottom: min.y, top: max.y, near: Math.max(0.5, -max.z - 1), far: -min.z + 1 });
+  cam.updateProjectionMatrix();
+}
+
 function buildWorld(ruleset: Ruleset, themeId: string, opts: BuildOptions): World {
   const L = look!;
   const base = Themes.getTheme(themeId);
@@ -180,15 +195,17 @@ function buildWorld(ruleset: Ruleset, themeId: string, opts: BuildOptions): Worl
   scene.environment = null;
   const env = detailed ? environment() : null;
 
-  // lights: one dominant key, a hemisphere fill and a soft accent ambient (÷ π)
-  root.add(new HemisphereLight(theme.wall, theme.floor, (detailed ? 0.4 : 0.55) / PI));
-  const key = new DirectionalLight(0xffffff, 1.35 / PI);
+  // lights: one dominant key, a hemisphere fill and a soft accent ambient
+  root.add(new HemisphereLight(theme.wall, theme.floor, detailed ? 0.4 : 0.55));
+  const key = new DirectionalLight(0xffffff, 1.35);
   key.position.set(7, 22, 9);
   key.target.position.set(0, 0, 0);
   key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.02;
   key.shadow.radius = 3;
   root.add(key, key.target);
-  root.add(new AmbientLight(theme.accent, 0.14 / PI));
+  fitShadow(key, w, h);
+  root.add(new AmbientLight(theme.accent, 0.14));
 
   // floor
   const fw = detailed ? Math.max(w, h) * 5 : w + 8;
@@ -346,7 +363,7 @@ function buildWorld(ruleset: Ruleset, themeId: string, opts: BuildOptions): Worl
   const ballCore = new Mesh(new SphereGeometry(ruleset.ballRadius, L.budget.ballSeg[0], L.budget.ballSeg[1]), ballMat);
   ballCore.castShadow = true;
   ball.add(ballCore);
-  const ballLight = new PointLight(theme.ball, 12 / PI, 12, 2);
+  const ballLight = new PointLight(theme.ball, 12, 12, 2);
   ballLight.position.y = 0.4;
   ball.add(ballLight);
   root.add(ball);
@@ -758,7 +775,7 @@ export function update(prev: State, cur: State, alpha: number, dt: number): void
   w.ball.position.set(bx, 0.42, -by);
   const spd = cur.ball.speed / cur.ruleset.maxBallSpeed;
   w.ballMat.emissiveIntensity = 1.2 + spd * 1.4;
-  w.ballLight.intensity = (8 + spd * 14) / PI;
+  w.ballLight.intensity = 8 + spd * 14;
   if (cur.phase === "rally") trailPush(bx, 0.42, -by);
   else if (cur.phase === "serve") trailClear();
   for (let sd = 0; sd < 2; sd++) {
