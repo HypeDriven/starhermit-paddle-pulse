@@ -602,8 +602,8 @@ function applyPost(): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: L.ao === "high" ? 6 : 4, rings: 2, samples: L.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
   // High threshold: only HDR neon strips, the ball and highlights bloom.
-  // The page's three r160 UnrealBloomPass strength 0.62 × theme squared: minor 29 bloom follows r185 (≈2.9× the light).
-  renderer.bloom = L.bloom ? { strength: (0.62 * (world?.theme.bloom ?? 1)) ** 2, radius: 0.5, threshold: 0.88, resolution: L.budget.bloomRes } : null;
+  // scene.js: three r160 UnrealBloomPass(0.62 × theme, 0.5, 0.88), drawn by the r160 bloom model at the page's strength.
+  renderer.bloom = L.bloom ? { model: "r160", strength: 0.62 * (world?.theme.bloom ?? 1), radius: 0.5, threshold: 0.88, resolution: L.budget.bloomRes } : null;
   // scene.js GradeShader on linear light: a 0.22 S-curve, saturation 1.12, cool shadows to neutral highlights, the 0.28 vignette.
   renderer.grade = L.grade ? {
     space: "linear", contrast: 0.22, saturation: 1.12, shadows: [0.95, 0.98, 1.06], highlights: [1, 1, 1], split: [0.15, 0.7],
