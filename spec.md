@@ -1,6 +1,6 @@
 # Paddle Pulse — Product and Game Specification
 
-**Document status:** running specification; the game runs on the StarHermit engine 1.24.0 (host API 1.21, `engine.minor=20`).  
+**Document status:** running specification; the game runs on the StarHermit engine 1.27.0 (host API 1.29, `engine.minor=29`).  
 **Game index:** 90  
 **Genre:** Realtime paddle sport  
 **Players:** 2–32 players as specified by playlist  
@@ -198,7 +198,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 
 ### Client modules
 
-The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.24.0, `engine.minor=20`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
+The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.27.0, `engine.minor=29`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
 
 - `js/rules/*.js` (pure, unchanged in what they decide): the deterministic 120 Hz rules (`engine.js`: commands, physics, scoring, terminal reasons, state hash, replay envelope and verifier), seeded streams (`rng.js`), canonical hashing (`hash.js`).
 - `js/session/*.js`: the session (`match.js`: command intake with dedupe, AI seats, undo snapshots, interpolation data, resume snapshots), the AI (`ai.js`), the versioned, checksummed documents with settings/progress migration and merge (`storage.js`, on a pluggable backend).
@@ -226,7 +226,7 @@ The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engi
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.24.0`, `engine.minor=20`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
+- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.27.0`, `engine.minor=29`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
 - No game code reads tokens or calls the game's own routes; the runtime owns sign-in, token renewal and the platform's endpoints.
 
 ### Identity, preferences, and progress
