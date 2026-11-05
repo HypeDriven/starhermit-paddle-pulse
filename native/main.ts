@@ -21,7 +21,7 @@
 // replay exactly. The countdown, the results delay and the lessons' close-out
 // (setInterval / setTimeout in the browser build) count the same steps, and
 // the arena is drawn between steps by the frame's interpolation.
-import { clipboard, frame, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { isDown, onAction, onPointerButton, onPointerMove, onTouch, value, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, reportBug, requestSignIn } from "starhermit:platform";
@@ -857,10 +857,9 @@ function handleEvents(events: RulesEvent[]): void {
 let lookKey = "";
 function applyLook(): void {
   const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
-  if (k === lookKey) return;
-  lookKey = k;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  if (f.level === lookKey) return;
+  lookKey = f.level;
+  render.applyLook(lookFor(levelSettings(f.level)));
 }
 
 onStart(() => {

@@ -29,15 +29,16 @@ const SFX: Record<string, [string, number]> = {
   "countdown:tick": ["countdown-tick", 0.6], "countdown:go": ["countdown-go", 0.7], undo: ["undo-rewind", 0.6],
 };
 const clips = new Map<string, AudioClip>();
-const queue: string[] = [];
-let loading = false;
-let wantClips = false;
 let suspended = false;
 let muted = false;
 let onCaption: ((cue: string) => void) | null = null;
 
-/** Asks for the clips; they load once the mixer runs (see update). */
-export function loadSfx(): void { wantClips = true; }
+/** Loads every clip at once (onStart); a sound whose clip is still loading is skipped. */
+export function loadSfx(): void {
+  for (const name of new Set(Object.values(SFX).map((s) => s[0]))) {
+    loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
+  }
+}
 /** Captions for meaningful sounds (audio.js caption()): the cue ids '[serve]', '[goal for you]', … */
 export function setOnCaption(fn: (cue: string) => void): void { onCaption = fn; }
 export function setMuted(on: boolean): void { muted = on; }
@@ -51,7 +52,7 @@ function sample(key: string): void {
   const clip = clips.get(s[0]);
   if (!clip) return;
   try { playClip(clip, { bus: key.startsWith("ui:") ? "interface" : "effects", gain: s[1] }); }
-  catch { clips.delete(s[0]); if (!queue.includes(s[0])) queue.push(s[0]); } // a clip the mixer lost: load it again
+  catch { /* the mixer is full this frame: skip it */ }
 }
 function caption(cue: string): void { onCaption?.(cue); }
 
@@ -171,22 +172,9 @@ function stopVoices(): void {
 }
 
 let ambClock = 0;
-/** Each frame: the clips once the mixer runs (one at a time), then the theme's loops, then their levels. */
+/** Each frame, once the mixer runs: the theme's loops, then their levels. */
 export function update(dt: number): void {
   if (context.state !== "running") return;
-  if (wantClips) {
-    wantClips = false;
-    for (const [n] of Object.values(SFX)) if (!queue.includes(n)) queue.push(n);
-  }
-  if (!loading && queue.length) {
-    const name = queue.shift()!;
-    if (!clips.has(name)) {
-      loading = true;
-      loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); loading = false; }, (e: unknown) => { console.warn(`sfx ${name}: ${String(e)}`); loading = false; });
-    }
-    return;
-  }
-  if (loading) return;
   const bed = want;
   if (!bed) return;
   const key = `${bed.root}:${bed.mood}`;

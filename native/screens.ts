@@ -65,21 +65,9 @@ function button(b: Btn, width: number | null = null): boolean {
 }
 /** .row-gap: buttons at their own widths in rows that wrap at `width`. */
 function flow(label: string, list: Btn[], width: number, gapPx = 10, justify: "start" | "center" | "end" = "start", role?: "radiogroup"): void {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  const bw = (b: Btn): number => Math.min(width, buttonWidth(b.text, b.style ?? "btn"));
-  for (const b of list) {
-    const w = bw(b);
-    if (rows[rows.length - 1]!.length && used + gapPx + w > width) { rows.push([]); used = 0; }
-    used += (rows[rows.length - 1]!.length ? gapPx : 0) + w;
-    rows[rows.length - 1]!.push(b);
-  }
-  const build = (): void => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => {
-      for (const b of row) button(b, bw(b) >= width ? width : null);
-    }, { spacing: gapPx, width, justify }));
-  };
-  ui.column(label, build, { spacing: gapPx, width, ...(role ? { role } : {}) });
+  ui.row(label, () => {
+    for (const b of list) button(b, buttonWidth(b.text, b.style ?? "btn") >= width ? width : null);
+  }, { wrap: true, width, gap: gapPx, justify, ...(role ? { role } : {}) });
 }
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls = "body", id?: string, align: "start" | "center" | "end" = "start"): void {
@@ -248,9 +236,10 @@ function hud(L: Layout): void {
     ui.row("hud-status-row", () => {
       const names = m.seats.map((s, i) => s.name || t(i === 0 ? "hud.you" : "hud.opponent"));
       const nameW = small ? 80 : 120;
-      ui.style("hud-name").id("hud-name-0").label(clip(names[0]!, "hud-name", nameW));
+      const nameStyle = (n: string): ui.Style => (textWidth(n, "hud-name") > nameW ? { width: nameW, text: { overflow: "ellipsis" } } : {});
+      ui.style("hud-name", nameStyle(names[0]!)).id("hud-name-0").label(names[0]!);
       ui.style(small ? "hud-score-small" : "hud-score").id("hud-score").label(`${m.state.score[0]} – ${m.state.score[1]}`);
-      ui.style("hud-name").id("hud-name-1").label(clip(names[1]!, "hud-name", nameW));
+      ui.style("hud-name", nameStyle(names[1]!)).id("hud-name-1").label(names[1]!);
     }, { style: "hud-status", spacing: small ? 10 : 14, align: "center", padding: L.short ? { top: 3, bottom: 3, start: 14, end: 14 } : undefined });
   });
   rect(pill);
@@ -311,13 +300,6 @@ function hud(L: Layout): void {
     });
   }
 }
-function clip(text: string, cls: string, w: number): string {
-  if (textWidth(text, cls) <= w) return text;
-  let s = text;
-  while (s.length > 1 && textWidth(s + "…", cls) > w) s = s.slice(0, -1);
-  return s + "…";
-}
-
 function captions(L: Layout): void {
   const c = app.caption;
   if (!c) return;
@@ -326,7 +308,7 @@ function captions(L: Layout): void {
     ui.row("caption-row", () => ui.style("caption-text").id("caption").label(c.text), { style: "caption" });
   });
 }
-/** Word-wrapped lines of `text` at most `width` logical px wide in a text class. */
+/** Word-wrapped lines of `text` at most `width` logical px wide in a text class (draw.text's maxWidth left-aligns its lines). */
 function wrapLines(text: string, cls: string, width: number): string[] {
   const lines: string[] = [];
   let cur = "";
@@ -681,7 +663,7 @@ function table(key: string, rows: string[][], heads: string[], w: number): void 
   ui.column(key, () => {
     ui.row(`${key}-head`, () => { heads.forEach((h, i) => ui.style("table-head", { width: cw }).id(`${key}-h${i}`).label(h)); }, { style: "table-row", width: w });
     rows.forEach((r, ri) => ui.row(`${key}-r${ri}`, () => {
-      r.forEach((c, i) => ui.style("table-cell", { width: cw }).id(`${key}-${ri}-${i}`).label(clip(c, "table-cell", cw - 4)));
+      r.forEach((c, i) => ui.style("table-cell", { width: cw, text: { overflow: "ellipsis" } }).id(`${key}-${ri}-${i}`).label(c));
     }, { style: "table-row", width: w }));
   }, { spacing: 0, width: w });
 }

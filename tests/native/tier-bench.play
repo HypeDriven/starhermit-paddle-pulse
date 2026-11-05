@@ -1,0 +1,20 @@
+# Practice rally for the graphics-level bench (engine-tier-bench.mjs): the arena, ball and sparks in play.
+until 300 Paddle Pulse
+frames 30
+click =Play
+until 60 Recovery
+frames 10
+click =Start
+until 400 =GO
+frames 90
+key Space 2
+frames 120
+measure start
+frames 150
+key Space 2
+frames 150
+key Space 2
+frames 150
+key Space 2
+frames 150
+measure stop

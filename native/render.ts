@@ -597,13 +597,14 @@ function applyShadows(): void {
 }
 function applyPost(): void {
   const L = look!;
-  renderer.ao = L.ao === "off" ? null : {
-    blendIntensity: 0.75, radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: L.ao === "high" ? 16 : 8, resolution: L.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: L.ao === "high" ? 6 : 4, rings: 2, samples: L.ao === "high" ? 16 : 8, radiusExponent: 2 },
+  const ao = L.ao, full = !!ao && ao.resolution >= 1; // the engine's full-resolution AO is its "high"
+  renderer.ao = ao && {
+    blendIntensity: 0.75, radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples, radiusExponent: 2 },
   };
   // High threshold: only HDR neon strips, the ball and highlights bloom.
   // scene.js: three r160 UnrealBloomPass(0.62 × theme, 0.5, 0.88), drawn by the r160 bloom model at the page's strength.
-  renderer.bloom = L.bloom ? { model: "r160", strength: 0.62 * (world?.theme.bloom ?? 1), radius: 0.5, threshold: 0.88, resolution: L.budget.bloomRes } : null;
+  renderer.bloom = L.bloom === null ? null : { model: "r160", strength: 0.62 * (world?.theme.bloom ?? 1), radius: 0.5, threshold: 0.88, resolution: L.bloom };
   // scene.js GradeShader on linear light: a 0.22 S-curve, saturation 1.12, cool shadows to neutral highlights, the 0.28 vignette.
   renderer.grade = L.grade ? {
     space: "linear", contrast: 0.22, saturation: 1.12, shadows: [0.95, 0.98, 1.06], highlights: [1, 1, 1], split: [0.15, 0.7],
