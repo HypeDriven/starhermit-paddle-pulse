@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LOCALES, resolvedStrings, CONTENT, setLocale, tc, t } from '../js/ui/i18n.js';
 import { LESSONS } from '../js/content/tutorials.js';
 import { JOURNEY_LEVELS, CHALLENGES, PRACTICE_DIFFICULTIES } from '../js/content/levels.js';
 import { ACHIEVEMENTS } from '../js/content/achievements.js';
@@ -14,6 +13,10 @@ import { TERMINAL } from '../js/rules/engine.js';
 import { defaultSettings } from '../js/session/storage.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DICTS = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/strings.json'), 'utf8'));
+const LOCALES = Object.keys(DICTS);
+const PARENT = { 'en-GB': 'en-US' };
+const lookup = (l, k) => { for (let c = l; c; c = PARENT[c]) if (Object.hasOwn(DICTS[c], k)) return DICTS[c][k]; return k; };
 const jsFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
   d.isDirectory() ? jsFiles(path.join(dir, d.name)) : d.name.endsWith('.js') ? [path.join(dir, d.name)] : []);
 const placeholders = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
@@ -57,18 +60,18 @@ function contentKeys() {
 test('every t() key used in code exists in all nine locales', () => {
   const keys = usedKeys();
   assert.ok(keys.size > 150, `only ${keys.size} keys found`);
-  const en = resolvedStrings('en-US');
+  const en = DICTS['en-US'];
   const missingEn = [...keys].filter((k) => !(k in en));
   assert.deepEqual(missingEn, [], 'missing in en-US');
   for (const l of LOCALES) {
-    const d = resolvedStrings(l);
+    const d = DICTS[l];
     assert.deepEqual([...keys].filter((k) => placeholders(d[k]) !== placeholders(en[k])), [], `placeholder mismatch in ${l}`);
   }
 });
 
 for (const locale of LOCALES.filter((l) => !l.startsWith('en'))) {
   test(`${locale}: every authored content string is translated with the same placeholders`, () => {
-    const dict = CONTENT[locale];
+    const dict = DICTS[locale];
     const keys = [...contentKeys()];
     assert.ok(keys.length > 140);
     assert.deepEqual(keys.filter((k) => !Object.prototype.hasOwnProperty.call(dict, k)), [], `missing in ${locale}`);
@@ -76,32 +79,16 @@ for (const locale of LOCALES.filter((l) => !l.startsWith('en'))) {
   });
 }
 
-test('no content table carries stale keys', () => {
-  const all = contentKeys();
-  for (const l of LOCALES) assert.deepEqual(Object.keys(CONTENT[l]).filter((k) => !all.has(k)), [], l);
+test('no table carries keys en-US lacks', () => {
+  for (const l of LOCALES) assert.deepEqual(Object.keys(DICTS[l]).filter((k) => !Object.hasOwn(DICTS['en-US'], k)), [], l);
 });
 
-test('tc() and t() follow the locale; regional variants inherit', () => {
-  setLocale('de-DE');
-  assert.equal(tc('First Contact'), 'Erster Kontakt');
-  assert.equal(t('hud.go'), 'LOS');
-  setLocale('es-ES');
-  assert.equal(tc('Long Court'), 'Pista larga');
-  assert.equal(tc('First Contact'), 'Primer contacto');
-  setLocale('fr-CA');
-  assert.equal(tc('Pinball'), 'Machine à boules');
-  assert.equal(tc('Slice'), 'Coupé');
-  setLocale('en-GB');
-  assert.equal(tc('Force the corners, own the center.'), 'Force the corners, own the centre.');
-  setLocale('en-US');
-  assert.equal(tc('Not content'), 'Not content');
-});
-
-test("the engine client's own strings (js/ui/i18n-native.js) exist in every language with the same placeholders", async () => {
-  const { NATIVE } = await import('../js/ui/i18n-native.js');
-  const en = Object.keys(NATIVE.en).sort();
-  for (const lang of ['es', 'de', 'fr', 'pt', 'it']) {
-    assert.deepEqual(Object.keys(NATIVE[lang]).sort(), en, lang);
-    for (const k of en) assert.equal(placeholders(NATIVE[lang][k]), placeholders(NATIVE.en[k]), `${lang} ${k}`);
-  }
+test('regional variants read their own or the shared text', () => {
+  assert.equal(lookup('de-DE', 'First Contact'), 'Erster Kontakt');
+  assert.equal(lookup('de-DE', 'hud.go'), 'LOS');
+  assert.equal(lookup('es-ES', 'Long Court'), 'Pista larga');
+  assert.equal(lookup('es-ES', 'First Contact'), 'Primer contacto');
+  assert.equal(lookup('fr-CA', 'Pinball'), 'Machine à boules');
+  assert.equal(lookup('fr-CA', 'Slice'), 'Coupé');
+  assert.equal(lookup('en-GB', 'Force the corners, own the center.'), 'Force the corners, own the centre.');
 });

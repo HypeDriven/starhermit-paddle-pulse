@@ -9,16 +9,16 @@
 // the theme's pentatonic scale on the off-beat, its stems' levels following
 // the match's intensity: the ball's speed). The browser build ran ambience and
 // music live (oscillators on a timer); here they are rendered once per theme
-// into clips (createClip, a slice a frame: 16 bars of the seeded walk, looped)
+// into clips (OfflineAudioContext, one per stem: 16 bars of the seeded walk, looped)
 // and played on the music bus, the stem levels set each frame (the runtime has
 // no ambience bus: the bed folds in the old ambience slider's 50 % against
 // music's 70 %). The oscillator blips the browser build synthesized while a
 // sample decoded are not ported (a live synthesis graph makes clip loads fail
 // on the engine's web runtime), so a clip still loading is silent. The
 // runtime's Options own the volumes and the voice limit; Settings › Mute all
-// silences the game's sounds as before. Clips load once the mixer runs
-// (natively at once, in a browser after the first press), one at a time.
-import { context, createClip, loadClip, play as playClip, type AudioClip, type Sound } from "starhermit:audio";
+// mutes the game on the engine. Clips load at once from onStart; the beds
+// start once the mixer runs (natively at once, in a browser after the first press).
+import { context, createClip, loadClip, OfflineAudioContext, play as playClip, setMuted as muteGame, type AudioClip, type Sound } from "starhermit:audio";
 
 const SFX: Record<string, [string, number]> = {
   "event:paddle": ["paddle-hit", 0.8], "event:wall": ["wall-bounce", 0.6], "event:bumper": ["bumper-bounce", 0.7],
@@ -30,7 +30,6 @@ const SFX: Record<string, [string, number]> = {
 };
 const clips = new Map<string, AudioClip>();
 let suspended = false;
-let muted = false;
 let onCaption: ((cue: string) => void) | null = null;
 
 /** Loads every clip at once (onStart); a sound whose clip is still loading is skipped. */
@@ -41,12 +40,13 @@ export function loadSfx(): void {
 }
 /** Captions for meaningful sounds (audio.js caption()): the cue ids '[serve]', '[goal for you]', … */
 export function setOnCaption(fn: (cue: string) => void): void { onCaption = fn; }
-export function setMuted(on: boolean): void { muted = on; }
+/** Settings › Mute all: the engine mutes the game (not saved: the setting is, and main.ts applies it). */
+export function setMuted(on: boolean): void { muteGame(on); }
 /** A hidden window: everything quiet (audio.js suspend / resume). */
 export function setSuspended(on: boolean): void { suspended = on; }
 
 function sample(key: string): void {
-  if (suspended || muted) return;
+  if (suspended) return;
   const s = SFX[key];
   if (!s) return;
   const clip = clips.get(s[0]);
@@ -85,20 +85,17 @@ const BAR = 60 / 96;
 const BARS = 16;
 const MUS_N = Math.round(RATE * BAR * BARS);
 const AMB_SECONDS = 2;
-const AMB_N = RATE * AMB_SECONDS;
 interface Bed { root: number; mood: string }
-interface Rendered {
-  key: string; pos: number; amb: Float32Array; bass: Float32Array; pad: Float32Array; arp: Float32Array; notes: number[];
-  clips: { amb: AudioClip; bass: AudioClip; pad: AudioClip; arp: AudioClip } | null; failed: boolean;
-}
+interface Stems { amb: AudioClip; bass: AudioClip; pad: AudioClip; arp: AudioClip }
+/** Each theme's stems once rendered (null while rendering or if it failed). */
+const rendered = new Map<string, Stems | null>();
 let want: Bed | null = null;
-let rendered: Rendered | null = null;
 let voices: { key: string; amb: Sound; bass: Sound; pad: Sound; arp: Sound } | null = null;
 let musicOn = false;
 let ambienceOn = false;
 let intensity = 0.3;
 
-/** A mulberry32 stream (rules/rng.js next) for the arpeggio's seeded walk. */
+/** A mulberry32 stream (rules/rng.js next) for the arpeggio's seeded walk: each theme keeps its melody. */
 function stream(seed: number): () => number {
   let n = seed >>> 0 || 0x9e3779b9;
   return () => {
@@ -109,56 +106,49 @@ function stream(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function startRender(bed: Bed): Rendered {
+/** audio.js note(): 10 ms linear attack to `peak`, exponential fall to 0.0001 by `dur`. */
+function note(off: OfflineAudioContext, type: "sine" | "triangle" | "square", freq: number, at: number, dur: number, peak: number): void {
+  const osc = off.createOscillator(); osc.type = type; osc.frequency.value = freq;
+  const g = off.createGain();
+  g.gain.setValueAtTime(0, at);
+  g.gain.linearRampToValueAtTime(peak, at + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  osc.connect(g).connect(off.destination);
+  osc.start(at); osc.stop(at + dur);
+}
+/** The engine's band-limited square reads -1.5 dB against the old naive one (rms 0.0169 vs 0.0202). */
+const ARP_MAKEUP = 1.19;
+const stemContext = (): OfflineAudioContext => new OfflineAudioContext(1, MUS_N, RATE);
+/** The theme's stems, one context each: 16 bars of bass, pad and the seeded walk; the 2 s ambience rounded to whole cycles. */
+async function renderStems(bed: Bed): Promise<Stems> {
   const scale = bed.mood === "major" ? [0, 2, 4, 7, 9] : [0, 3, 5, 7, 10];
   const rnd = stream((bed.root * 977) ^ 0xbead);
-  const notes: number[] = [];
+  const bass = stemContext(), pad = stemContext(), arp = stemContext();
   for (let b = 0; b < BARS; b++) {
     const degree = scale[Math.floor(rnd() * scale.length)]!;
-    notes.push(rnd() > 0.25 ? bed.root * Math.pow(2, degree / 12) * 4 : 0);
+    const f = rnd() > 0.25 ? bed.root * Math.pow(2, degree / 12) * 4 : 0;
+    const at = b * BAR;
+    note(bass, "sine", bed.root, at, BAR * 0.9, 0.5);
+    if (b % 2 === 0) note(pad, "triangle", bed.root * 1.5, at, BAR * 1.8, 0.4);
+    if (f) note(arp, "square", f, at + BAR * 0.5, BAR * 0.4, 0.12 * ARP_MAKEUP);
   }
-  return {
-    key: `${bed.root}:${bed.mood}`, pos: 0, amb: new Float32Array(AMB_N), bass: new Float32Array(MUS_N), pad: new Float32Array(MUS_N),
-    arp: new Float32Array(MUS_N), notes, clips: null, failed: false,
-  };
-}
-/** audio.js note(): 10 ms linear attack to `peak`, exponential fall to 0.0001 by `dur`. */
-function env(t: number, dur: number, peak: number): number {
-  if (t < 0 || t > dur) return 0;
-  if (t < 0.01) return (peak * t) / 0.01;
-  return peak * Math.pow(0.0001 / peak, (t - 0.01) / Math.max(0.001, dur - 0.01));
-}
-const TAU = Math.PI * 2;
-const tri = (ph: number): number => { const p = ph - Math.floor(ph); return p < 0.5 ? 4 * p - 1 : 3 - 4 * p; };
-const sq = (ph: number): number => (ph - Math.floor(ph) < 0.5 ? 1 : -1);
-/** Renders `count` more samples; true when all are done. */
-function renderSome(r: Rendered, bed: Bed, count: number): boolean {
-  // ambience: root/2 sine + root×1.005 triangle, rounded to whole cycles in the 2 s loop
-  const f1 = Math.round((bed.root / 2) * AMB_SECONDS) / AMB_SECONDS;
-  const f2 = Math.round(bed.root * 1.005 * AMB_SECONDS) / AMB_SECONDS;
-  const end = Math.min(MUS_N, r.pos + count);
-  for (let i = r.pos; i < end; i++) {
-    const t = i / RATE;
-    if (i < AMB_N) r.amb[i] = 0.5 * (Math.sin(TAU * f1 * t) + tri(f2 * t));
-    const bar = Math.floor(t / BAR);
-    let bass = 0, pad = 0, arp = 0;
-    // the bar's notes, and those still sounding from the bars before (wrapping round the loop)
-    for (const back of [0, 1, 2]) {
-      const b = (bar - back + BARS) % BARS;
-      const local = t - bar * BAR + back * BAR;
-      if (back <= 1) bass += Math.sin(TAU * bed.root * local) * env(local, BAR * 0.9, 0.5);
-      if (b % 2 === 0) pad += tri(bed.root * 1.5 * local) * env(local, BAR * 1.8, 0.4);
-      const f = r.notes[b]!;
-      if (f && back <= 1) arp += sq(f * (local - BAR * 0.5)) * env(local - BAR * 0.5, BAR * 0.4, 0.12);
-    }
-    r.bass[i] = bass; r.pad[i] = pad; r.arp[i] = arp;
-  }
-  r.pos = end;
-  return r.pos >= MUS_N;
+  const amb = new OfflineAudioContext(1, RATE * AMB_SECONDS, RATE);
+  const half = amb.createGain(); half.gain.value = 0.5; half.connect(amb.destination);
+  const low = amb.createOscillator(); low.frequency.value = Math.round((bed.root / 2) * AMB_SECONDS) / AMB_SECONDS;
+  const high = amb.createOscillator(); high.type = "triangle"; high.frequency.value = Math.round(bed.root * 1.005 * AMB_SECONDS) / AMB_SECONDS;
+  low.connect(half); high.connect(half); low.start(); high.start();
+  const [a, b, p, q] = await Promise.all([amb.startRendering(), bass.startRendering(), pad.startRendering(), arp.startRendering()]);
+  return { amb: createClip(a), bass: createClip(b), pad: createClip(p), arp: createClip(q) };
 }
 
 /** audio.js startAmbience + startMusic: the theme's bed and music from the next frames. */
-export function startTheme(bed: Bed): void { want = bed; musicOn = true; ambienceOn = true; }
+export function startTheme(bed: Bed): void {
+  want = bed; musicOn = true; ambienceOn = true;
+  const key = `${bed.root}:${bed.mood}`;
+  if (rendered.has(key)) return;
+  rendered.set(key, null);
+  renderStems(bed).then((c) => { rendered.set(key, c); }, (e: unknown) => { console.warn(`audio: ${String(e)}`); });
+}
 /** audio.js setIntensity: 0..1 (from the ball's speed). */
 export function setIntensity(v: number): void { intensity = Math.max(0, Math.min(1, v)); }
 export function stopMusic(): void { musicOn = false; }
@@ -171,6 +161,7 @@ function stopVoices(): void {
   voices = null;
 }
 
+const TAU = Math.PI * 2;
 let ambClock = 0;
 /** Each frame, once the mixer runs: the theme's loops, then their levels. */
 export function update(dt: number): void {
@@ -178,32 +169,23 @@ export function update(dt: number): void {
   const bed = want;
   if (!bed) return;
   const key = `${bed.root}:${bed.mood}`;
-  if (!rendered || rendered.key !== key) rendered = startRender(bed);
-  const r = rendered;
-  if (r.failed) return;
-  if (!r.clips) {
-    if (!renderSome(r, bed, 6000)) return;
-    try {
-      r.clips = { amb: createClip([r.amb], RATE), bass: createClip([r.bass], RATE), pad: createClip([r.pad], RATE), arp: createClip([r.arp], RATE) };
-    } catch (e) { console.warn(`audio: ${String(e)}`); r.failed = true; }
-    return;
-  }
+  const clips = rendered.get(key);
+  if (!clips) return;
   if (!voices || voices.key !== key) {
     stopVoices();
     // all stems start together (one frame) so they stay in step
     try {
       const o = { bus: "music" as const, gain: 0, loop: true };
-      voices = { key, amb: playClip(r.clips.amb, o), bass: playClip(r.clips.bass, o), pad: playClip(r.clips.pad, o), arp: playClip(r.clips.arp, o) };
+      voices = { key, amb: playClip(clips.amb, o), bass: playClip(clips.bass, o), pad: playClip(clips.pad, o), arp: playClip(clips.arp, o) };
     } catch { voices = null; }
     return;
   }
   ambClock += dt;
-  const quiet = suspended || muted;
-  const on = musicOn && !quiet;
+  const on = musicOn && !suspended;
   const i = intensity;
   try {
     // audio.js: ambience 0.05 ± 0.02 at 0.07 Hz (× 0.5 / 0.7 for its bus); bass 0.05 + i × 0.1; pad 0.10; arp above 0.45
-    voices.amb.fade(ambienceOn && !quiet ? (0.05 + 0.02 * Math.sin(TAU * 0.07 * ambClock)) * 0.71 : 0, 0.2);
+    voices.amb.fade(ambienceOn && !suspended ? (0.05 + 0.02 * Math.sin(TAU * 0.07 * ambClock)) * 0.71 : 0, 0.2);
     voices.bass.fade(on ? 0.05 + i * 0.1 : 0, 0.4);
     voices.pad.fade(on ? 0.1 : 0, 0.4);
     voices.arp.fade(on && i > 0.45 ? 0.06 + i * 0.08 : 0, 0.6);

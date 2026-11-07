@@ -26,7 +26,7 @@
 //   'result', scores }, as the JS SDK's submitScores did) with the rank.
 import type { JsonValue } from "starhermit:engine";
 import {
-  avatar as fetchAvatar, connectGame, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, serverNow, serverTime, sessions,
+  avatar as fetchAvatar, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, serverNow, serverTime,
   type Leaderboard,
 } from "starhermit:platform";
 import { saves, settings as gameSettings, storage as device } from "starhermit:storage";
@@ -268,39 +268,9 @@ export async function readBoard(): Promise<BoardLine[] | null> {
 export interface Posted { posted: boolean; rank: number | null }
 /** Signed in only: post a finished match's longest rally through score-script.js; { posted, rank }. Never rejects. */
 export async function postLongestRally(value: number): Promise<Posted> {
-  const me = player();
-  if (!me) return { posted: false, rank: null };
-  const score = Math.max(0, Math.round(value));
-  let accepted: string[] = [];
+  if (!player()) return { posted: false, rank: null };
   try {
-    const sessionId = await sessions.practice();
-    accepted = await new Promise<string[]>((resolve) => {
-      const socket = connectGame(sessionId);
-      let done = false;
-      const finish = (list: string[]): void => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        socket.close();
-        resolve(list);
-      };
-      const timer = setTimeout(() => finish([]), 15000);
-      socket.on("open", () => { socket.sendCommand({ type: "result", scores: { [BOARD_KEY]: score } }); });
-      socket.on("game", (data) => {
-        const d = data as { type?: string; accepted?: string[] } | null;
-        if (d && d.type === "result-ack") finish(Array.isArray(d.accepted) ? d.accepted : []);
-      });
-      socket.on("error", () => finish([]));
-      socket.on("stopped", () => finish([]));
-      socket.on("abandoned", () => finish([]));
-    });
+    const r = await leaderboards.submitScore(BOARD_KEY, Math.max(0, Math.round(value)));
+    return { posted: r.accepted, rank: r.rank };
   } catch { return { posted: false, rank: null }; }
-  if (!accepted.includes(BOARD_KEY)) return { posted: false, rank: null };
-  try {
-    const b = await rallyBoard();
-    if (!b) return { posted: true, rank: null };
-    const r = await leaderboards.entries(b.id, { pageSize: 100 });
-    const mine = r.items.find((e) => e.userId === me.userId);
-    return { posted: true, rank: mine ? mine.rank : null };
-  } catch { return { posted: true, rank: null }; }
 }

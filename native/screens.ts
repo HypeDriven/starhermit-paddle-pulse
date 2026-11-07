@@ -31,10 +31,8 @@ import {
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; phone: boolean; short: boolean; compact: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height), sc = v.scale;
   return { lw, lh, sc, phone: lw <= 700 && lh > 500, short: lh <= 500 && lw > lh, compact: lw < 1024 };
 }
 const fresh = (): boolean => frame().frame !== app.openedFrame;
@@ -308,17 +306,6 @@ function captions(L: Layout): void {
     ui.row("caption-row", () => ui.style("caption-text").id("caption").label(c.text), { style: "caption" });
   });
 }
-/** Word-wrapped lines of `text` at most `width` logical px wide in a text class (draw.text's maxWidth left-aligns its lines). */
-function wrapLines(text: string, cls: string, width: number): string[] {
-  const lines: string[] = [];
-  let cur = "";
-  for (const word of text.split(/\s+/)) {
-    const next = cur ? `${cur} ${word}` : word;
-    if (cur && textWidth(next, cls) > width) { lines.push(cur); cur = word; } else cur = next;
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}
 /** The toasts: drawn by role-"none" widgets in a placed column that paints nothing, so they never take the pointer from
  * the buttons under them. */
 function toasts(L: Layout): void {
@@ -331,16 +318,14 @@ function toasts(L: Layout): void {
     ui.column("toast-col", () => {
       app.toasts.forEach((x) => {
         const cls = x.kind === "error" ? "toast-error" : x.kind === "success" ? "toast-success" : x.kind === "info" ? "toast-info" : "toast";
-        const tcls = x.kind === "error" ? "toast-error-text" : "toast-text";
-        const lines = wrapLines(x.text, tcls, w - 40);
-        const lw = Math.max(...lines.map((l) => textWidth(l, tcls)));
-        const lh = ui.measureText("Ag", { style: [tcls] }).height / prefs.scale;
+        const size = 16 * prefs.textScale, wrap = w - 40;
+        const m = draw.measureText(x.text, { size: size * prefs.scale, font: "sans-serif", maxWidth: wrap * prefs.scale });
         ui.widget("", {
-          role: "none", size: { width: lw + 38, height: lines.length * lh + 22 },
+          role: "none", size: { width: m.width / prefs.scale + 38, height: m.height / prefs.scale + 22 },
           draw: (r, st) => {
             draw.box(r.x, r.y, r.width, r.height, cls);
             const color = x.kind === "error" ? "#ffb9c0" : st.highContrast ? "#ffffff" : "#e8f4ff";
-            lines.forEach((line, i) => draw.text(line, r.x + r.width / 2, r.y + (11 + i * lh) * st.scale, { size: 16 * st.scale * prefs.textScale, color, align: "center", font: "sans-serif" }));
+            draw.text(x.text, r.x + r.width / 2, r.y + 11 * st.scale, { size: size * st.scale, color, align: "center", font: "sans-serif", maxWidth: wrap * st.scale });
           },
         });
       });

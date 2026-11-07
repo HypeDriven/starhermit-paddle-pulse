@@ -21,7 +21,7 @@
 // replay exactly. The countdown, the results delay and the lessons' close-out
 // (setInterval / setTimeout in the browser build) count the same steps, and
 // the arena is drawn between steps by the frame's interpolation.
-import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, createTimers, frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { isDown, onAction, onPointerButton, onPointerMove, onTouch, value, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, reportBug, requestSignIn } from "starhermit:platform";
@@ -104,8 +104,8 @@ function showCaption(cue: string): void {
   app.caption = { text: CAPTION_KEYS[cue] ? `[${t(CAPTION_KEYS[cue]!)}]` : cue, until: now() + 1.8 };
 }
 /** setTimeout on the fixed steps. */
-const timers: { left: number; fn: () => void }[] = [];
-function after(ms: number, fn: () => void): void { timers.push({ left: ms / 1000, fn }); }
+const timers = createTimers!();
+function after(ms: number, fn: () => void): void { timers.after(ms / 1000, fn); }
 const pendingActs: (() => void)[] = [];
 /** A widget's press, run once the frame's UI is built (state changes mid-build would break later widgets). */
 export function later(fn: () => void): void { pendingActs.push(fn); }
@@ -312,7 +312,7 @@ export function startMatch(ctx: Ctx | null = app.ctx): void {
   lastMoveSent = 0;
   keyOrigin = null;
   pointerX = null;
-  timers.length = 0;
+  timers.clear();
   render.build(app.match.state.ruleset, ctx.theme || "neon-district", { side: 0, cvd: settings.accessibility.palette, view: settings.camera.view });
   const theme = ctx.theme || "neon-district";
   audio.startTheme(themeBed(theme));
@@ -891,11 +891,7 @@ onQuit(() => { if (app.phase === "paused") saveSnapshot(); });
 
 onFixedUpdate(() => {
   if (hidden) return;
-  for (let i = 0; i < timers.length; i++) {
-    const tm = timers[i]!;
-    tm.left -= DT;
-    if (tm.left <= 1e-9) { timers.splice(i, 1); i--; tm.fn(); }
-  }
+  timers.advance(DT);
   const m = app.match;
   if (app.phase === "active" && m && !m.finished && !app.stack.length) {
     pollInputs();

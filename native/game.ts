@@ -7,8 +7,7 @@
 // checksummed documents (js/session/storage.js, on the backend
 // native/platform.ts gives it), the content (js/content/*.js: Journey,
 // Challenges, practice difficulties, lessons, the Daily, themes and
-// colour-vision palettes, achievements) and the string tables
-// (js/ui/i18n.js). Typed here with the shapes this client reads.
+// colour-vision palettes, achievements). Typed here with the shapes this client reads.
 import * as EngineJs from "../js/rules/engine.js";
 import * as MatchJs from "../js/session/match.js";
 import * as StorageJs from "../js/session/storage.js";
