@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Paddle Pulse on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules, AI, session and content
@@ -914,7 +915,7 @@ onUpdate((dt) => {
   app.toasts = app.toasts.filter((x) => x.until > tm);
   if (app.caption && app.caption.until <= tm) app.caption = null;
 });
-onRender((alpha) => {
+onRender(__l10nRender((alpha) => {
   hudRects.length = 0;
   drawScreens();
   for (const fn of pendingActs.splice(0)) fn();
@@ -927,4 +928,8 @@ onRender((alpha) => {
     const ip = m.interpolation(a);
     render.update(ip.prev, ip.cur, a, frameDt);
   } else render.idle(frameDt);
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);
