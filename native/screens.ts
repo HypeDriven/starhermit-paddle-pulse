@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
 // localization-runtime:attached
@@ -166,7 +167,7 @@ function cardGrid<T>(key: string, items: T[], width: number, min: number, each: 
 }
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   const f = frame();
   const hudShown = !!app.match && ["countdown", "active", "paused", "resolving"].includes(app.phase);
@@ -759,3 +760,10 @@ function resumeScreen(w: number): void {
   ], w, 10);
 }
 
+
+export function drawScreens(): void {
+  if (!(app.stack.includes("help"))) { drawScreensImmediate(); return; }
+  const actions = ["left","right","serve","pause","undo","camera","hint","p2left","p2right","p2serve"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
+}

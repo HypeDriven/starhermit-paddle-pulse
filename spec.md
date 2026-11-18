@@ -1,6 +1,6 @@
 # Paddle Pulse — Product and Game Specification
 
-**Document status:** running specification; the game runs on the StarHermit engine 1.39.0 (host API 1.39, `engine.minor=39`).
+**Document status:** running specification; the game runs on the StarHermit engine 1.44.1 (host API 1.44, `engine.minor=44`).
 **Game index:** 90  
 **Genre:** Realtime paddle sport  
 **Players:** 2–32 players as specified by playlist  
@@ -198,7 +198,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 
 ### Client modules
 
-The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.39.0, `engine.minor=39`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
+The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.44.1, `engine.minor=44`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
 
 - `js/rules/*.js` (pure, unchanged in what they decide): the deterministic 120 Hz rules (`engine.js`: commands, physics, scoring, terminal reasons, state hash, replay envelope and verifier), seeded streams (`rng.js`), canonical hashing (`hash.js`).
 - `js/session/*.js`: the session (`match.js`: command intake with dedupe, AI seats, undo snapshots, interpolation data, resume snapshots), the AI (`ai.js`), the versioned, checksummed documents with settings/progress migration and merge (`storage.js`, on a pluggable backend).
@@ -220,13 +220,13 @@ The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engi
 
 - Show useful progress by asset group; load core rules/UI first and scenic assets lazily. Provide procedural low-detail substitutes if optional assets fail.
 - Cache immutable hashed assets and the last safe local snapshot. Updates activate between rounds, never during one.
-- Recover WebGL context by rebuilding GPU resources from retained CPU descriptors. If 3D is unavailable, present a clear compatibility message and preserve account/session state.
+- Recover the graphics device by rebuilding GPU resources from retained CPU descriptors. If WebGPU is unavailable in a browser, present a clear compatibility message and preserve account/session state.
 - Background tabs reduce rendering to zero or a low heartbeat while preserving required network lifecycle.
 
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.39.0`, `engine.minor=39`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
+- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
 - No game code reads tokens or calls the game's own routes; the runtime owns sign-in, token renewal and the platform's endpoints.
 
 ### Identity, preferences, and progress
@@ -320,3 +320,9 @@ This document does **not** authorize implementation, asset production, monetizat
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `nl-BE`, `zh-SG`, `ms-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `id-ID`, `vi-VN`, `ja-JP`, `ta-SG`, `et-EE`, `ru-FI`, `ru-EE`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `su-ID`, `bew-ID`, `km-VN`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
