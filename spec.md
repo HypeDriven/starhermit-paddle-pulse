@@ -1,6 +1,6 @@
 # Paddle Pulse — Product and Game Specification
 
-**Document status:** running specification; the game runs on the StarHermit engine 1.44.1 (host API 1.44, `engine.minor=44`).
+**Document status:** running specification; the game runs on the StarHermit engine 1.47.0 (host API 1.47, `engine.minor=47`).
 **Game index:** 90  
 **Genre:** Realtime paddle sport  
 **Players:** 2–32 players as specified by playlist  
@@ -198,12 +198,12 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 
 ### Client modules
 
-The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.44.1, `engine.minor=44`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
+The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.47.0, `engine.minor=47`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
 
 - `js/rules/*.js` (pure, unchanged in what they decide): the deterministic 120 Hz rules (`engine.js`: commands, physics, scoring, terminal reasons, state hash, replay envelope and verifier), seeded streams (`rng.js`), canonical hashing (`hash.js`).
 - `js/session/*.js`: the session (`match.js`: command intake with dedupe, AI seats, undo snapshots, interpolation data, resume snapshots), the AI (`ai.js`), the versioned, checksummed documents with settings/progress migration and merge (`storage.js`, on a pluggable backend).
 - `js/content/*.js`: Journey, Challenges, practice difficulties, lessons and their step checks, the Daily, themes and colour-vision palettes, achievements, offline validators.
-- `assets/strings.json`: the string tables (keyed UI strings, content keyed by its US-English text) in the nine locales, loaded through the engine's `strings`.
+- `assets/strings.json`: the string tables (keyed UI strings, content keyed by its US-English text) in the nine required locales and complete regional variants, loaded through the engine's `strings`.
 - `js/migrate.js`: reading the browser build's cloud save and account settings.
 - `native/main.ts`: the flow, input into commands, lessons, results, progress, the resume snapshot, the lifecycle, the fixed-step clock. `native/screens.ts`: the HUD, screens, toasts and captions on `starhermit:ui`. `native/render.ts`: the arena on `starhermit:scene`. `native/audio.ts`: sounds and music on `starhermit:audio`. `native/platform.ts`: saves, settings, the player, the clock, leaderboards. `native/quality.ts`, `native/style.ts`, `native/i18n.ts`, `native/game.ts` (typed facade over the js modules).
 - Localization: the runtime's interface language (Options › Language: the player's choice, else the account's preferred language, else the device's) picks the nearest shipped locale (es-MX → es-419, en-AU → en-GB, fr → fr-FR, pt-PT → pt-BR); everything is drawn through `t()` / `tc()` each frame, so a change shows on the next frame without touching the match. The browser build's Language section (`sh-language.js`) and `?lang=` are gone. AI opponent names (Drift … Zenith) stay as authored.
@@ -226,7 +226,7 @@ The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engi
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
+- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.47.0`, `engine.minor=47`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
 - No game code reads tokens or calls the game's own routes; the runtime owns sign-in, token renewal and the platform's endpoints.
 
 ### Identity, preferences, and progress
@@ -321,8 +321,12 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.44.1
+## Engine 1.47.0
 
-Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.47.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
+
+Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
+
+Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.

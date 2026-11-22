@@ -74,10 +74,10 @@ test('practice difficulties map to valid AI levels', () => {
   }
 });
 
-test('localization ships the nine platform locales, each with the full key set', () => {
+test('localization ships the required and regional locales, each with the full key set', () => {
   const DICTS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
   const required = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
-  assert.deepEqual(Object.keys(DICTS), required);
+  for (const l of required) assert.ok(DICTS[l], l);
   const enKeys = Object.keys(DICTS['en-US']).sort();
   assert.ok(enKeys.length >= 200, 'dictionary covers the UI chrome');
   for (const l of required.filter((x) => x !== 'en-GB')) {

@@ -613,6 +613,7 @@ function applyPost(): void {
     overRange: "keep", // minor 29: mix(c, s + max(c - 1, 0), amount) as the page's grade
   } : null;
   renderer.antialias = L.antialias;
+  renderer.motionBlur = L.bloom !== null ? { intensity: 0.25, samples: 8, maxPixels: 16, targetFps: 60, camera: false } : null;
 }
 /** The look for the frame's graphics level (quality.ts); rebuilds the arena when its shape changes. */
 export function applyLook(next: Look): void {
