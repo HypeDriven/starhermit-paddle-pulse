@@ -65,7 +65,7 @@
     "native/render.ts": {"sha256": "b33806fc6a032f04603e54b7a60513c90659be4b7685355645f7761c3b985d6b", "size": 41119},
     "native/screens.ts": {"sha256": "94dad8e2c0bd0fdee3274b7fd880fe2db9281a22d69338fae4957da08f5a3d27", "size": 45054},
     "native/style.ts": {"sha256": "d4856ce35e5282590f8a3db23dd5a9d28710490cc755e8713bc14605ccbcff46", "size": 2762},
-    "publication.json": {"sha256": "9d4c73220033773b1367891d53d93ded075119330ecb624d7998b62365dd0c34", "size": 4118},
+    "publication.json": {"sha256": "75c320865dccddf012777ced5b2f7bf87d50dd3b137d3fe1451f3f60a027df71", "size": 4119},
     "score-script.js": {"sha256": "f7f5d7064634539ff08a926b729dd30ae9c064d8b25568abe50227f601358d9d", "size": 2492},
     "sfx/bumper-bounce.opus": {"sha256": "f88812a0b3f695418077d17007d98cb220a349e17d75caa420e9171f752e21bd", "size": 21750},
     "sfx/countdown-go.opus": {"sha256": "49bee05feab3b46cbd2a6b17daaf1377ba919a266ac5c344b74c8ed7a6160769", "size": 14635},
