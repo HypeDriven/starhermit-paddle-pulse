@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:01:04.838817+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T21:34:11.137072+00:00",
+    "coverArtUpdatedAt": "2026-11-27T17:07:13.92879+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T21:34:11.125335+00:00",
+      "deployedAt": "2026-11-27T17:07:13.918745+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.51.0",
+      "engineVersion": "1.53.0",
       "deployWarning": null
     },
     "description": "Move your paddle to return a speeding ball and send it past your opponent's goal line.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T21:34:11.531Z",
-  "sourceCommit": "11cbe2003c24692f170de9da677c437303e34779",
-  "bytesReceived": 5169535,
-  "archiveSha256": "2ecaa6a5a06bd630373ad65a6bc9877ce18d551fe65e278da560ddca0729b73e",
+  "publishedAt": "2026-11-27T17:07:14.093Z",
+  "sourceCommit": "2fd886707a25358eab4a3ecd7cb043675db94176",
+  "bytesReceived": 5169500,
+  "archiveSha256": "b4c4ce06b0109ca12489bc7d6ad68ccd2df5a448094046cbfcbb88c711aa818f",
   "indexSha256": "1bdc08043582dda1b755b359671cdfd8c1f95aed7e6adcd97125708a7490dee0",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 5169535,
+    "bytesReceived": 5169500,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.51.0",
+    "engineVersion": "1.53.0",
     "deployWarning": null
   },
   "liveVerification": {
