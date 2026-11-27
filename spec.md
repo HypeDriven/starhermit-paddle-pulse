@@ -1,6 +1,6 @@
 # Paddle Pulse — Product and Game Specification
 
-**Document status:** running specification; the game runs on the StarHermit engine 1.51.0 (host API 1.51, `engine.minor=51`).
+**Document status:** running specification; the game runs on the StarHermit engine 1.53.0 (host API 1.53, `engine.minor=53`).
 **Game index:** 90  
 **Genre:** Realtime paddle sport  
 **Players:** 2–32 players as specified by playlist  
@@ -198,7 +198,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 
 ### Client modules
 
-The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.51.0, `engine.minor=51`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
+The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engine 1.53.0, `engine.minor=53`), played natively by the StarHermit client and in browsers by the engine's web runtime from the loader `index.html` (written by `npm run package`).
 
 - `js/rules/*.js` (pure, unchanged in what they decide): the deterministic 120 Hz rules (`engine.js`: commands, physics, scoring, terminal reasons, state hash, replay envelope and verifier), seeded streams (`rng.js`), canonical hashing (`hash.js`).
 - `js/session/*.js`: the session (`match.js`: command intake with dedupe, AI seats, undo snapshots, interpolation data, resume snapshots), the AI (`ai.js`), the versioned, checksummed documents with settings/progress migration and merge (`storage.js`, on a pluggable backend).
@@ -226,7 +226,7 @@ The game is a StarHermit engine script game (`engine.entry=native/main.ts`, engi
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.51.0`, `engine.minor=51`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
+- `starhermit.txt`: name, description, owner, `server=score-script.js`, version, cover, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.53.0`, `engine.minor=53`, `engine.capabilities=platform,storage,clipboard`, the controls and gamepad defaults. `npm run package` (`starhermit package --web .`) writes the loader `index.html` and `starhermit-files.json`; run it after every change. `.starhermitignore` leaves out tests/, tools/, spec, licence, cover art and the sfx manifests.
 - No game code reads tokens or calls the game's own routes; the runtime owns sign-in, token renewal and the platform's endpoints.
 
 ### Identity, preferences, and progress
@@ -321,12 +321,14 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.51.0
+## Engine 1.53.0
 
-Browser play uses the StarHermit 1.51.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the StarHermit 1.53.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
 Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
 
 Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.
+
+On engine 1.53.0, browser play through WebGL 2 compiles a frame's shader programs together and holds that frame until they are linked, blends skinned meshes in one pass, reuses the window pass's depth, and uses a hardware WebGL 2 context when WebGPU's adapter is software.
